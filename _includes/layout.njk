@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f8fc">
+  <title>{{ title or site.name }}</title>
+  <meta name="description" content="{{ site.description }}">
+  <link rel="stylesheet" href="/styles/board.css">
+  <link rel="stylesheet" href="/styles/v2.css">
+  <script defer src="/scripts/icons.js"></script>
+  <script defer src="/scripts/cloud-icons.js"></script>
+  <script type="module" src="/scripts/app.js"></script>
+</head>
+<body>
+{{ content | safe }}
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "archcanvas-eleventy",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "eleventy --serve --port=8081",
+    "build": "eleventy",
+    "test": "node --test tests/*.test.js",
+    "check": "npm test && npm run build"
+  },
+  "devDependencies": { "@11ty/eleventy": "^3.1.0" }
+}

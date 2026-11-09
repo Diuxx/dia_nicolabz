@@ -1,0 +1,40 @@
+/* ArchCanvas v2 - couche de personnalisation, sans casser les styles du POC. */
+.topbar{gap:12px}
+.top-actions{margin-left:auto}
+.profile-wrapper{position:relative;flex:none;z-index:15}
+.profile-trigger{display:flex;align-items:center;gap:9px;padding:6px 10px;border:1px solid #e4e8f1;border-radius:12px;background:#fff;cursor:pointer;text-align:left;min-width:145px;color:#263754}
+.profile-trigger:hover,.profile-trigger[aria-expanded=true]{border-color:#a6a0e8;background:#fbfaff}
+.profile-avatar-box{width:31px;height:31px;border-radius:50%;background:#c6e4d6;color:#285944;font-weight:850;display:grid;place-items:center;overflow:hidden;position:relative}
+.profile-avatar-box img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.profile-avatar-box img[hidden]{display:none}
+.profile-label{display:flex;flex-direction:column;gap:2px;min-width:0}
+.profile-label strong{font-size:11px;white-space:nowrap;overflow:hidden;max-width:75px;text-overflow:ellipsis}
+.profile-label small{font-size:9px;color:#779186}
+.profile-chevron{font-size:16px;margin-left:auto;color:#9aa7b7}
+.profile-menu{position:absolute;right:0;top:calc(100% + 9px);width:255px;background:#fff;box-shadow:0 16px 45px #1b34542e;border:1px solid #e4e9f2;border-radius:14px;padding:9px;z-index:20}
+.profile-menu[hidden]{display:none}
+.profile-menu-header{padding:12px 12px 15px;display:flex;flex-direction:column;gap:4px;border-bottom:1px solid #edf0f5;margin-bottom:5px}
+.profile-menu-header strong{font-size:13px;color:#293856}
+.profile-menu-header span{font-size:11px;color:#65728a;overflow-wrap:anywhere}
+.profile-menu-header small{font-size:10px;color:#4e8e75}
+.profile-menu button{width:100%;text-align:left;border:0;border-radius:8px;padding:11px 12px;background:transparent;color:#34435f;font-size:12px;cursor:pointer}
+.profile-menu button:hover:not(:disabled){background:#eff8f3}
+.profile-menu button:disabled{opacity:.5;cursor:not-allowed}
+.profile-menu button[hidden]{display:none}
+.context-menu{position:fixed;min-width:208px;max-width:260px;border-radius:12px;border:1px solid #e0e7ef;background:#fff;box-shadow:0 17px 42px #1d2d4b33;padding:6px;z-index:40;color:#253654}
+.context-menu[hidden]{display:none}
+.context-heading{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#8491a7;padding:10px 10px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.context-action{width:100%;display:block;text-align:left;border:0;border-radius:7px;padding:11px 10px;background:transparent;color:#364662;font-size:12px;font-weight:600;cursor:pointer}
+.context-action:hover,.context-action:focus-visible{background:#eff5f7;outline:0}
+.context-action.danger{color:#ce5265}
+.context-action.danger:hover{background:#ffeff1}
+.sync-dialog{width:min(440px,calc(100vw - 32px));border:1px solid #e3e9ee;border-radius:16px;box-shadow:0 25px 80px #192b4838;padding:27px;color:#293958;background:#fff}
+.sync-dialog::backdrop{background:#141d35a6}
+.sync-dialog h2{margin:0 0 11px;font-size:18px}
+.sync-dialog p{color:#607189;line-height:1.7;font-size:13px}
+.sync-choices{display:grid;gap:8px;margin-top:22px}
+.sync-choices button{cursor:pointer;padding:12px;border-radius:9px;border:1px solid #b5c6d5;background:#eff7f3;color:#365b4b;font-size:12px;font-weight:800}
+.sync-choices button:hover{background:#daece2}
+.sync-choices button.cancel{background:#fff;color:#65758a}
+@media(max-width:1050px){.profile-trigger{min-width:auto}.profile-label,.profile-chevron{display:none}.brand{min-width:auto}.top-actions{gap:2px}}
+@media(max-width:720px){.top-actions .button{font-size:10px}.profile-trigger{padding:5px}.profile-menu{right:0}}

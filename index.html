@@ -1,0 +1,93 @@
+---
+layout: layout.njk
+title: ArchCanvas — Architecture whiteboard
+---
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-symbol" aria-hidden="true">A<span>•</span></span><div><strong>ArchCanvas</strong><small>Architecture whiteboard</small></div><span class="version">POC</span></div>
+      <div class="document-name"><span class="live-dot"></span><input id="project-name" aria-label="Nom du schéma" value="Architecture de démonstration" maxlength="70"><span class="saved-indicator" id="saved-indicator">Enregistré</span></div>
+      <div class="top-actions">
+        <button type="button" id="new-button" class="button subtle" title="Créer un tableau vierge">Nouveau</button>
+        <button type="button" id="open-button" class="button subtle" title="Importer un fichier JSON">Importer</button>
+        <button type="button" id="export-json-button" class="button subtle" title="Exporter le projet modifiable">JSON <span class="down-arrow">↓</span></button>
+        <button type="button" id="export-png-button" class="button primary" title="Exporter une image PNG">Exporter PNG <span class="down-arrow">↗</span></button>
+      </div>
+      <div class="profile-wrapper">
+        <button type="button" id="profile-trigger" class="profile-trigger" aria-expanded="false" aria-controls="profile-menu" title="Compte Google et synchronisation Drive">
+          <span class="profile-avatar-box"><span id="profile-avatar-fallback">G</span><img id="profile-avatar" alt="" hidden></span>
+          <span class="profile-label"><strong id="profile-short-name">Compte</strong><small id="identity-status">Mode local</small></span>
+          <span class="profile-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div id="profile-menu" class="profile-menu" hidden>
+          <div class="profile-menu-header"><strong id="profile-name">Compte Google</strong><span id="profile-email">Édition locale</span><small id="profile-status">Mode local</small></div>
+          <button type="button" id="identity-login">Connexion avec Google</button>
+          <button type="button" id="identity-drive" hidden>Autoriser Google Drive</button>
+          <button type="button" id="identity-sync" disabled hidden>Synchroniser le schéma</button>
+          <button type="button" id="identity-refresh">Actualiser la connexion</button>
+          <button type="button" id="identity-logout" hidden>Se déconnecter</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-main">
+      <aside class="sidebar left-sidebar" aria-label="Bibliothèque de composants">
+        <div class="panel-heading"><div><p class="eyebrow">BIBLIOTHÈQUE</p><h2>Composants <span class="icon-count" id="icon-count">54</span></h2></div></div>
+        <div class="search-wrap"><svg viewBox="0 0 24 24" width="17" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="icon-search" placeholder="Rechercher une icône…" aria-label="Rechercher une icône"></div>
+        <div id="palette" class="palette" aria-label="Faites glisser une icône vers le tableau"></div>
+        <div class="import-icons-block"><div class="custom-header"><span class="small-bullet">✦</span><strong>Vos propres SVG</strong></div><p>Importez les icônes IconScout que vous avez téléchargées.</p><button type="button" id="import-icons-button" class="button import-asset">+ Ajouter des SVG</button><a href="https://iconscout.com/icon-pack/servers-database-icon-pack_16213" target="_blank" rel="noopener noreferrer">Voir les packs IconScout ↗</a></div>
+      </aside>
+
+      <main class="canvas-area" aria-label="Tableau blanc d'architecture">
+        <div class="board-topbar"><div class="board-breadcrumb"><span class="breadcrumb-cube" aria-hidden="true">◇</span> Workspace <span class="slash">/</span> <strong>Canvas</strong></div><div class="board-info"><span class="status-dot"></span><span id="node-count">0 composants</span><span class="dot-divider">·</span><span id="edge-count">0 connexions</span></div></div>
+        <div class="board" id="board" tabindex="0" aria-label="Tableau interactif. Déplacer les composants et relier leurs ports.">
+          <div class="board-world" id="world">
+            <svg class="connections" id="connections" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3200 2400" aria-label="Connexions entre les composants">
+              <defs><marker id="arrow-marker" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 7 4 1 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+              <g id="edge-layer"></g><g id="preview-layer"></g>
+            </svg>
+            <div class="node-layer" id="node-layer"></div>
+          </div>
+          <div class="board-placeholder" id="board-placeholder" hidden><div class="placeholder-icon">◇</div><h2>Votre architecture commence ici</h2><p>Glissez un composant de la bibliothèque ou cliquez dessus pour l’ajouter.</p></div>
+          <div class="board-toolbox" role="toolbar" aria-label="Outils du tableau">
+            <button id="select-mode" class="tool active" title="Sélection (V)" aria-label="Mode sélection"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 3 13 11-6 1-3 6-4-18Z"/></svg></button>
+            <button id="pan-mode" class="tool" title="Déplacer le tableau (H)" aria-label="Mode déplacement"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12V7a2 2 0 0 1 4 0v4-6a2 2 0 0 1 4 0v6-3a2 2 0 0 1 4 0v8c0 4-3 6-7 6H9c-2 0-4-2-5-4l-2-4a2 2 0 0 1 3-2l3 3"/></svg></button>
+            <span class="tool-divider"></span>
+            <button id="add-note-button" class="tool" title="Ajouter une note" aria-label="Ajouter une note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12l-4 4H4zM16 20v-4h4M8 9h8M8 13h6"/></svg></button>
+            <button id="fit-button" class="tool" title="Centrer tous les composants" aria-label="Ajuster à l'écran"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8l-5-5m13 5 5-5M8 16l-5 5m13-5-5 5"/></svg></button>
+          </div>
+          <div class="zoom-controls" aria-label="Zoom du tableau"><button type="button" id="zoom-out" aria-label="Dézoomer">−</button><span id="zoom-value">100%</span><button type="button" id="zoom-in" aria-label="Zoomer">+</button></div>
+          <div class="canvas-hint" id="canvas-hint"><span class="hint-symbol">✧</span> Glisser pour déplacer · Relier les points pour connecter</div>
+        </div>
+      </main>
+
+      <aside class="sidebar right-sidebar" aria-label="Propriétés de l'élément sélectionné">
+        <div class="inspector-title"><p class="eyebrow">CONFIGURATION</p><h2>Propriétés</h2></div>
+        <div id="inspector-empty" class="inspector-empty"><div class="inspector-empty-illustration"><span>⌁</span><span>◈</span><span>⌁</span></div><strong>Aucun élément sélectionné</strong><p>Sélectionnez un composant ou une connexion sur le tableau pour le modifier.</p></div>
+        <div id="node-inspector" hidden>
+          <div class="selected-preview"><div id="selected-icon"></div><div><span class="eyebrow">COMPOSANT</span><h3 id="selected-type"></h3></div></div>
+          <label class="field-label" for="node-title">Nom du composant</label><input id="node-title" class="field" type="text" maxlength="60">
+          <label class="field-label" for="node-description">Description / technologie</label><textarea id="node-description" class="field textarea" rows="3" maxlength="180"></textarea>
+          <label class="field-label" for="node-color">Couleur de la carte</label><div class="color-choices" id="color-choices"></div>
+          <div class="inspector-actions"><button class="button secondary" id="duplicate-button">Dupliquer</button><button class="button danger" id="delete-node-button">Supprimer</button></div>
+          <div class="inspector-tip"><strong>Connexions</strong><p>Cliquez sur le point à droite d'un composant puis sur celui à gauche d'un autre composant. Vous pouvez aussi glisser d’un point à l’autre.</p></div>
+        </div>
+        <div id="edge-inspector" hidden><div class="connection-header">↗ <strong>Connexion sélectionnée</strong></div><label class="field-label" for="edge-label">Libellé (ex. HTTPS, SQL)</label><input id="edge-label" class="field" maxlength="50" placeholder="HTTPS : 443"><button class="button danger block" id="delete-edge-button">Supprimer la connexion</button></div>
+        <div class="sidebar-footer"><div class="footer-kbd">⌨</div><div><strong>Raccourcis clavier</strong><p>Suppr : effacer · Ctrl+Z : annuler · Molette : zoom · Espace : déplacer</p></div></div>
+      </aside>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <input type="file" id="project-file" accept=".json,application/json" hidden>
+    <input type="file" id="svg-files" accept=".svg,image/svg+xml" multiple hidden>
+  </div>
+
+  <div class="context-menu" id="context-menu" role="menu" aria-label="Actions contextuelles" hidden></div>
+  <dialog id="sync-dialog" class="sync-dialog" aria-labelledby="sync-dialog-title">
+    <h2 id="sync-dialog-title">Synchronisation Google Drive</h2>
+    <p id="sync-dialog-message"></p>
+    <div class="sync-choices">
+      <button type="button" data-choice="remote" id="sync-download">Garder Drive → Local</button>
+      <button type="button" data-choice="local" id="sync-upload">Garder le local → Drive</button>
+      <button type="button" data-choice="cancel" class="cancel">Annuler</button>
+    </div>
+  </dialog>
