@@ -1,5 +1,8 @@
 import { mountIdentity } from './ui/identity-ui.js';
 import { createContextMenu } from './ui/context-menu.js';
+import { clampGroupDelta } from './core/multi-select.js';
+import { connectionPortNormal, connectionPortPoint, inferConnectionPorts } from './core/connection-ports.js';
+import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.js';
 
 /* ArchCanvas — dependency-free browser whiteboard. No external network calls. */
 (() => {
@@ -52,10 +55,12 @@ import { createContextMenu } from './ui/context-menu.js';
   let project = loadSavedProject() || demoProject();
   let view = { x: 70, y: 70, zoom: 1 };
   let selection = null; // { kind: 'node' | 'edge', id }
+  let selectedNodeIds = new Set();
   let mode = 'select';
   let isSpaceDown = false;
   let interaction = null;
   let pendingSourceId = null;
+  let pendingSourcePort = null;
   let past = [];
   let future = [];
   let toastTimer;
@@ -99,13 +104,20 @@ import { createContextMenu } from './ui/context-menu.js';
         color: COLORS.includes(node.color) ? node.color : COLORS[0] };
     });
     const edgeIds = new Set();
+    const validPorts = new Set(['top', 'right', 'bottom', 'left']);
     const edges = data.edges.map((edge) => {
       if (typeof edge.id !== 'string' || !/^[\w-]{1,90}$/.test(edge.id) || edgeIds.has(edge.id) ||
-          !nodeIds.has(edge.from) || !nodeIds.has(edge.to) || edge.from === edge.to) {
+          !nodeIds.has(edge.from) || !nodeIds.has(edge.to) || edge.from === edge.to ||
+          (edge.fromPort && !validPorts.has(edge.fromPort)) || (edge.toPort && !validPorts.has(edge.toPort))) {
         throw new Error('Une connexion du projet est invalide.');
       }
       edgeIds.add(edge.id);
-      return { id: edge.id, from: edge.from, to: edge.to, label: String(edge.label || '').slice(0, 50) };
+      const fromNode = nodes.find((node) => node.id === edge.from);
+      const toNode = nodes.find((node) => node.id === edge.to);
+      const inferredPorts = inferConnectionPorts(fromNode, toNode, NODE_W, NODE_H);
+      return { id: edge.id, from: edge.from, to: edge.to, label: String(edge.label || '').slice(0, 50),
+        fromPort: edge.fromPort || inferredPorts.fromPort, toPort: edge.toPort || inferredPorts.toPort,
+        lineType: normalizeEdgeLineType(edge.lineType) };
     });
     return { version: 1, name: String(data.name || 'Nouveau schéma').slice(0, 70), customIcons, nodes, edges };
   }
@@ -168,6 +180,7 @@ import { createContextMenu } from './ui/context-menu.js';
     future.push(deepCopy(project));
     project = past.pop();
     selection = null;
+    selectedNodeIds.clear();
     pendingSourceId = null;
     redraw();
     save();
@@ -178,6 +191,7 @@ import { createContextMenu } from './ui/context-menu.js';
     past.push(deepCopy(project));
     project = future.pop();
     selection = null;
+    selectedNodeIds.clear();
     pendingSourceId = null;
     redraw();
     save();
@@ -243,7 +257,7 @@ import { createContextMenu } from './ui/context-menu.js';
     for (const node of project.nodes) {
       const isNote = node.iconId === 'note';
       const element = document.createElement('div');
-      element.className = `architecture-node${isNote ? ' note-node' : ''}${selection?.kind === 'node' && selection.id === node.id ? ' selected' : ''}`;
+      element.className = `architecture-node${isNote ? ' note-node' : ''}${selectedNodeIds.has(node.id) ? ' selected' : ''}`;
       element.dataset.nodeId = node.id;
       element.style.left = `${node.x}px`;
       element.style.top = `${node.y}px`;
@@ -268,11 +282,11 @@ import { createContextMenu } from './ui/context-menu.js';
       description.textContent = node.description;
       element.append(title, description);
       if (!isNote) {
-        for (const type of ['input', 'output']) {
+        for (const side of ['top', 'right', 'bottom', 'left']) {
           const port = document.createElement('span');
-          port.className = `port ${type}${type === 'output' && pendingSourceId === node.id ? ' pending' : ''}`;
-          port.dataset.port = type;
-          port.title = type === 'output' ? 'Démarrer une connexion' : 'Terminer une connexion';
+          port.className = `port port-${side}${pendingSourceId === node.id ? ' pending' : ''}`;
+          port.dataset.port = side;
+          port.title = `Démarrer ou terminer une connexion ${side === 'top' ? 'en haut' : side === 'right' ? 'à droite' : side === 'bottom' ? 'en bas' : 'à gauche'}`;
           element.appendChild(port);
         }
       }
@@ -283,16 +297,26 @@ import { createContextMenu } from './ui/context-menu.js';
     $('node-count').textContent = `${project.nodes.length} composant${project.nodes.length === 1 ? '' : 's'}`;
   }
 
-  function getEndpoints(fromId, toId) {
-    const from = project.nodes.find((node) => node.id === fromId);
-    const to = project.nodes.find((node) => node.id === toId);
+  function getEndpoints(edge) {
+    const from = project.nodes.find((node) => node.id === edge.from);
+    const to = project.nodes.find((node) => node.id === edge.to);
     if (!from || !to) return null;
-    return { x1: from.x + NODE_W, y1: from.y + 68, x2: to.x, y2: to.y + 68 };
+    const inferred = inferConnectionPorts(from, to, NODE_W, NODE_H);
+    const fromPort = edge.fromPort || inferred.fromPort;
+    const toPort = edge.toPort || inferred.toPort;
+    const start = connectionPortPoint(from, fromPort, NODE_W, NODE_H);
+    const end = connectionPortPoint(to, toPort, NODE_W, NODE_H);
+    return { x1: start.x, y1: start.y, x2: end.x, y2: end.y,
+      fromNormal: connectionPortNormal(fromPort), toNormal: connectionPortNormal(toPort) };
   }
 
-  function bezier(x1, y1, x2, y2) {
-    const bend = Math.max(68, Math.abs(x2 - x1) * .52);
-    return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
+  function bezier(x1, y1, x2, y2, fromNormal, toNormal) {
+    const bend = Math.max(45, Math.hypot(x2 - x1, y2 - y1) * .35);
+    const control1X = x1 + fromNormal.x * bend;
+    const control1Y = y1 + fromNormal.y * bend;
+    const control2X = x2 + toNormal.x * bend;
+    const control2Y = y2 + toNormal.y * bend;
+    return `M ${x1} ${y1} C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${x2} ${y2}`;
   }
 
   function svgElement(tag, attrs = {}) {
@@ -304,12 +328,16 @@ import { createContextMenu } from './ui/context-menu.js';
   function renderEdges() {
     ui.edges.replaceChildren();
     for (const edge of project.edges) {
-      const point = getEndpoints(edge.from, edge.to);
+      const point = getEndpoints(edge);
       if (!point) continue;
-      const d = bezier(point.x1, point.y1, point.x2, point.y2);
+      const d = bezier(point.x1, point.y1, point.x2, point.y2, point.fromNormal, point.toNormal);
       const group = svgElement('g', { class: `edge-group${selection?.kind === 'edge' && selection.id === edge.id ? ' selected' : ''}`, 'data-edge-id': edge.id });
       group.appendChild(svgElement('path', { d, class: 'edge-hit' }));
-      group.appendChild(svgElement('path', { d, class: 'edge-path' }));
+      const edgePath = svgElement('path', { d, class: 'edge-path' });
+      for (const [attribute, value] of Object.entries(edgeLineSvgAttributes(edge.lineType, 'arrow-marker'))) {
+        edgePath.setAttribute(attribute, value);
+      }
+      group.appendChild(edgePath);
       if (edge.label) {
         const cx = (point.x1 + point.x2) / 2;
         const cy = (point.y1 + point.y2) / 2;
@@ -330,22 +358,31 @@ import { createContextMenu } from './ui/context-menu.js';
 
   function updatePreview(point) {
     ui.preview.replaceChildren();
-    if (!pendingSourceId) return;
+    if (!pendingSourceId || !pendingSourcePort) return;
     const from = project.nodes.find((node) => node.id === pendingSourceId);
     if (!from) return;
-    const x1 = from.x + NODE_W;
-    const y1 = from.y + 68;
-    const x2 = point?.x ?? x1 + 90;
-    const y2 = point?.y ?? y1;
-    ui.preview.appendChild(svgElement('path', { d: bezier(x1, y1, x2, y2), class: 'preview-path' }));
+    const start = connectionPortPoint(from, pendingSourcePort, NODE_W, NODE_H);
+    const normal = connectionPortNormal(pendingSourcePort);
+    const target = point || { x: start.x + normal.x * 90, y: start.y + normal.y * 90 };
+    const targetPort = inferConnectionPorts(from, { x: target.x - NODE_W / 2, y: target.y - NODE_H / 2 }, NODE_W, NODE_H).toPort;
+    const endNormal = connectionPortNormal(targetPort);
+    ui.preview.appendChild(svgElement('path', { d: bezier(start.x, start.y, target.x, target.y, normal, endNormal), class: 'preview-path' }));
   }
 
   function renderInspector() {
     const node = selection?.kind === 'node' ? project.nodes.find((item) => item.id === selection.id) : null;
     const edge = selection?.kind === 'edge' ? project.edges.find((item) => item.id === selection.id) : null;
+    const hasMultipleNodes = selectedNodeIds.size > 1;
     ui.inspectorEmpty.hidden = Boolean(node || edge);
     ui.nodeInspector.hidden = !node;
     ui.edgeInspector.hidden = !edge;
+    if (hasMultipleNodes) {
+      ui.inspectorEmpty.querySelector('strong').textContent = `${selectedNodeIds.size} composants sélectionnés`;
+      ui.inspectorEmpty.querySelector('p').textContent = 'Faites glisser un composant sélectionné pour déplacer le groupe. Ctrl/Cmd + clic pour modifier la sélection.';
+    } else {
+      ui.inspectorEmpty.querySelector('strong').textContent = 'Aucun élément sélectionné';
+      ui.inspectorEmpty.querySelector('p').textContent = 'Sélectionnez un composant ou une connexion sur le tableau pour le modifier.';
+    }
     if (node) {
       const icon = $('selected-icon');
       icon.replaceChildren();
@@ -369,7 +406,10 @@ import { createContextMenu } from './ui/context-menu.js';
         choices.appendChild(item);
       }
     }
-    if (edge) $('edge-label').value = edge.label;
+    if (edge) {
+      $('edge-label').value = edge.label;
+      $('edge-line-type').value = edge.lineType;
+    }
   }
 
   function redraw() {
@@ -384,6 +424,7 @@ import { createContextMenu } from './ui/context-menu.js';
 
   function select(value) {
     selection = value;
+    selectedNodeIds = value?.kind === 'node' ? new Set([value.id]) : new Set();
     renderNodes();
     renderEdges();
     renderInspector();
@@ -413,15 +454,19 @@ import { createContextMenu } from './ui/context-menu.js';
     showToast('Composant ajouté.');
   }
 
-  function completeConnection(fromId, toId) {
+  function completeConnection(fromId, toId, toPort) {
+    const fromPort = pendingSourcePort;
     pendingSourceId = null;
+    pendingSourcePort = null;
     ui.preview.replaceChildren();
     if (fromId === toId) return showToast('Une connexion doit relier deux composants différents.');
     if (project.edges.some((edge) => edge.from === fromId && edge.to === toId)) return showToast('Cette connexion existe déjà.');
     const from = project.nodes.find((node) => node.id === fromId);
     const to = project.nodes.find((node) => node.id === toId);
     if (!from || !to || from.iconId === 'note' || to.iconId === 'note') return;
-    const edge = { id: uid(), from: fromId, to: toId, label: '' };
+    const inferred = inferConnectionPorts(from, to, NODE_W, NODE_H);
+    const edge = { id: uid(), from: fromId, to: toId, fromPort: fromPort || inferred.fromPort,
+      toPort: toPort || inferred.toPort, label: '' };
     changeProject(() => project.edges.push(edge));
     select({ kind: 'edge', id: edge.id });
     showToast('Connexion créée. Vous pouvez lui ajouter un libellé.');
@@ -435,11 +480,13 @@ import { createContextMenu } from './ui/context-menu.js';
     if (port && !isSpaceDown && mode !== 'pan') {
       event.stopPropagation();
       event.preventDefault();
-      if (port.dataset.port === 'input') {
-        if (pendingSourceId) completeConnection(pendingSourceId, nodeId);
+      const portSide = port.dataset.port;
+      if (pendingSourceId) {
+        completeConnection(pendingSourceId, nodeId, portSide);
         return;
       }
       pendingSourceId = nodeId;
+      pendingSourcePort = portSide;
       interaction = { kind: 'connect', moved: false, startClientX: event.clientX, startClientY: event.clientY };
       renderNodes();
       updatePreview(pointToWorld(event.clientX, event.clientY));
@@ -449,10 +496,24 @@ import { createContextMenu } from './ui/context-menu.js';
     event.stopPropagation();
     event.preventDefault();
     pendingSourceId = null;
+    pendingSourcePort = null;
     updatePreview();
-    select({ kind: 'node', id: nodeId });
-    const node = project.nodes.find((item) => item.id === nodeId);
-    interaction = { kind: 'move', nodeId, x: node.x, y: node.y,
+    const additive = event.ctrlKey || event.metaKey || event.shiftKey;
+    if (additive) {
+      if (selectedNodeIds.has(nodeId)) selectedNodeIds.delete(nodeId);
+      else selectedNodeIds.add(nodeId);
+    } else if (!selectedNodeIds.has(nodeId)) {
+      selectedNodeIds = new Set([nodeId]);
+    }
+    selection = selectedNodeIds.size === 1
+      ? { kind: 'node', id: selectedNodeIds.values().next().value }
+      : null;
+    renderNodes();
+    renderEdges();
+    renderInspector();
+    if (!selectedNodeIds.has(nodeId)) return;
+    const selectedNodes = project.nodes.filter((item) => selectedNodeIds.has(item.id));
+    interaction = { kind: 'move', nodes: selectedNodes.map((item) => ({ id: item.id, x: item.x, y: item.y })),
       startClientX: event.clientX, startClientY: event.clientY, before: deepCopy(project), moved: false };
   }
 
@@ -466,15 +527,18 @@ import { createContextMenu } from './ui/context-menu.js';
       view.y = interaction.y + event.clientY - interaction.startClientY;
       applyView();
     } else if (interaction.kind === 'move') {
-      const node = project.nodes.find((item) => item.id === interaction.nodeId);
-      if (!node) return;
       const dx = (event.clientX - interaction.startClientX) / view.zoom;
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
-      node.x = clamp(Math.round(interaction.x + dx), 0, CANVAS_W - NODE_W);
-      node.y = clamp(Math.round(interaction.y + dy), 0, CANVAS_H - NODE_H);
-      const element = [...ui.nodes.children].find((item) => item.dataset.nodeId === node.id);
-      if (element) { element.style.left = `${node.x}px`; element.style.top = `${node.y}px`; }
+      const boundedDelta = clampGroupDelta(interaction.nodes, Math.round(dx), Math.round(dy), CANVAS_W, CANVAS_H, NODE_W, NODE_H);
+      for (const position of interaction.nodes) {
+        const node = project.nodes.find((item) => item.id === position.id);
+        if (!node) continue;
+        node.x = position.x + boundedDelta.x;
+        node.y = position.y + boundedDelta.y;
+        const element = [...ui.nodes.children].find((item) => item.dataset.nodeId === node.id);
+        if (element) { element.style.left = `${node.x}px`; element.style.top = `${node.y}px`; }
+      }
       renderEdges();
     } else if (interaction.kind === 'connect') {
       if (Math.hypot(event.clientX - interaction.startClientX, event.clientY - interaction.startClientY) > 6) interaction.moved = true;
@@ -487,21 +551,24 @@ import { createContextMenu } from './ui/context-menu.js';
     const last = interaction;
     interaction = null;
     if (last.kind === 'move' && last.moved) {
-      const node = project.nodes.find((item) => item.id === last.nodeId);
-      if (node && (node.x !== last.x || node.y !== last.y)) {
+      const hasMoved = last.nodes.some((position) => {
+        const node = project.nodes.find((item) => item.id === position.id);
+        return node && (node.x !== position.x || node.y !== position.y);
+      });
+      if (hasMoved) {
         recordChange(last.before);
         save();
       }
     }
     if (last.kind === 'connect') {
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.port.input');
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.port');
       const targetNode = target?.closest('[data-node-id]')?.dataset.nodeId;
       if (targetNode && pendingSourceId) {
-        completeConnection(pendingSourceId, targetNode);
+        completeConnection(pendingSourceId, targetNode, target.dataset.port);
       } else {
         updatePreview();
         renderNodes();
-        if (last.moved) showToast('Cliquez sur un port d’entrée pour terminer la connexion.');
+        if (last.moved) showToast('Relâchez sur un point d’accroche pour terminer la connexion.');
       }
     }
   }
@@ -536,18 +603,21 @@ import { createContextMenu } from './ui/context-menu.js';
   }
 
   function deleteSelection() {
-    if (!selection) return;
-    const selected = selection;
+    if (!selection && !selectedNodeIds.size) return;
+    const selected = selection || { kind: 'node' };
+    const nodeIds = selected.kind === 'node'
+      ? new Set(selectedNodeIds.size ? selectedNodeIds : [selected.id])
+      : new Set();
     changeProject(() => {
       if (selected.kind === 'node') {
-        project.nodes = project.nodes.filter((node) => node.id !== selected.id);
-        project.edges = project.edges.filter((edge) => edge.from !== selected.id && edge.to !== selected.id);
+        project.nodes = project.nodes.filter((node) => !nodeIds.has(node.id));
+        project.edges = project.edges.filter((edge) => !nodeIds.has(edge.from) && !nodeIds.has(edge.to));
       } else {
         project.edges = project.edges.filter((edge) => edge.id !== selected.id);
       }
     });
     select(null);
-    showToast('Élément supprimé.');
+    showToast(nodeIds.size > 1 ? 'Composants supprimés.' : 'Élément supprimé.');
   }
 
   function duplicateNode() {
@@ -588,12 +658,14 @@ import { createContextMenu } from './ui/context-menu.js';
     const w = maxX - minX;
     const h = maxY - minY;
     const fragments = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
-      '<defs><marker id="export-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1 7 4 1 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker></defs>',
+      '<defs><marker id="export-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1 7 4 1 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker><marker id="export-arrow-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7 1 1 4 7 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker></defs>',
       `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`];
     for (const edge of project.edges) {
-      const p = getEndpoints(edge.from, edge.to);
+      const p = getEndpoints(edge);
       if (!p) continue;
-      fragments.push(`<path d="${bezier(p.x1, p.y1, p.x2, p.y2)}" fill="none" stroke="#8996ac" stroke-width="2.5" marker-end="url(#export-arrow)"/>`);
+      const lineAttributes = Object.entries(edgeLineSvgAttributes(edge.lineType, 'export-arrow'))
+        .map(([attribute, value]) => `${attribute}="${value}"`).join(' ');
+      fragments.push(`<path d="${bezier(p.x1, p.y1, p.x2, p.y2, p.fromNormal, p.toNormal)}" fill="none" stroke="#8996ac" stroke-width="2.5" ${lineAttributes}/>`);
       if (edge.label) {
         const cx = (p.x1 + p.x2) / 2;
         const cy = (p.y1 + p.y2) / 2;
@@ -624,6 +696,7 @@ import { createContextMenu } from './ui/context-menu.js';
 
   async function exportPng() {
     try {
+      ui.board.classList.add('exporting-png');
       const exportData = createExportSvg();
       const blob = new Blob([exportData.content], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -652,6 +725,8 @@ import { createContextMenu } from './ui/context-menu.js';
     } catch (error) {
       console.error(error);
       showToast(error.message || 'Échec de l’export PNG.');
+    } finally {
+      ui.board.classList.remove('exporting-png');
     }
   }
 
@@ -720,7 +795,9 @@ import { createContextMenu } from './ui/context-menu.js';
     recordChange();
     project = imported;
     selection = null;
+    selectedNodeIds.clear();
     pendingSourceId = null;
+    pendingSourcePort = null;
     redraw();
     fitToContent();
     save();
@@ -730,6 +807,7 @@ import { createContextMenu } from './ui/context-menu.js';
     const source = project.nodes.find((node) => node.id === nodeId);
     if (!source || source.iconId === 'note') return;
     pendingSourceId = nodeId;
+    pendingSourcePort = 'right';
     select({ kind: 'node', id: nodeId });
     updatePreview();
     showToast('Clique sur le port d’entrée d’un autre composant pour le relier.');
@@ -796,6 +874,14 @@ import { createContextMenu } from './ui/context-menu.js';
 
   function attachEvents() {
     ui.search.addEventListener('input', renderPalette);
+    $('ports-toggle').addEventListener('click', (event) => {
+      const button = event.currentTarget;
+      const hidden = ui.board.classList.toggle('hide-ports');
+      button.classList.toggle('active', !hidden);
+      button.setAttribute('aria-pressed', String(!hidden));
+      button.title = hidden ? 'Afficher les points de connexion' : 'Masquer les points de connexion';
+      button.setAttribute('aria-label', button.title);
+    });
     ui.board.addEventListener('contextmenu', openBoardContextMenu);
     ui.name.addEventListener('change', () => {
       const name = ui.name.value.trim().slice(0, 70) || 'Nouveau schéma';
@@ -811,6 +897,7 @@ import { createContextMenu } from './ui/context-menu.js';
       if (mode === 'select' && !isSpaceDown && !event.target.closest('.architecture-node')) {
         select(null);
         pendingSourceId = null;
+        pendingSourcePort = null;
         updatePreview();
       }
       interaction = { kind: 'pan', x: view.x, y: view.y, startClientX: event.clientX, startClientY: event.clientY };
@@ -851,11 +938,13 @@ import { createContextMenu } from './ui/context-menu.js';
     $('node-title').addEventListener('change', (event) => updateSelectedField('title', event.target.value.trim().slice(0, 60) || 'Sans titre'));
     $('node-description').addEventListener('change', (event) => updateSelectedField('description', event.target.value.slice(0, 180)));
     $('edge-label').addEventListener('change', (event) => updateSelectedField('label', event.target.value.slice(0, 50)));
+    $('edge-line-type').addEventListener('change', (event) => updateSelectedField('lineType', normalizeEdgeLineType(event.target.value)));
     $('new-button').addEventListener('click', () => {
       if (project.nodes.length && !window.confirm('Créer un tableau vierge ? Le projet actuel reste récupérable uniquement si vous l’avez exporté.')) return;
       recordChange();
       project = { version: 1, name: 'Nouvelle architecture', nodes: [], edges: [], customIcons: deepCopy(project.customIcons) };
       selection = null;
+      selectedNodeIds.clear();
       redraw();
       fitToContent();
       save();
@@ -874,6 +963,7 @@ import { createContextMenu } from './ui/context-menu.js';
         recordChange();
         project = imported;
         selection = null;
+        selectedNodeIds.clear();
         pendingSourceId = null;
         redraw();
         fitToContent();
@@ -890,7 +980,14 @@ import { createContextMenu } from './ui/context-menu.js';
     window.addEventListener('keydown', (event) => {
       const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
       if (editing) return;
-      if (event.key === 'Escape') contextMenu.close();
+      if (event.key === 'Escape') {
+        contextMenu.close();
+        pendingSourceId = null;
+        pendingSourcePort = null;
+        interaction = null;
+        updatePreview();
+        renderNodes();
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         if (event.shiftKey) redo(); else undo();
@@ -898,8 +995,6 @@ import { createContextMenu } from './ui/context-menu.js';
         event.preventDefault(); redo();
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault(); deleteSelection();
-      } else if (event.key === 'Escape') {
-        pendingSourceId = null; interaction = null; updatePreview(); select(null);
       } else if (event.key === ' ' && !event.repeat) {
         event.preventDefault(); isSpaceDown = true; ui.board.classList.add('mode-pan');
       } else if (event.key.toLowerCase() === 'v') setMode('select');

@@ -9,8 +9,8 @@ test('les trois menus contextuels sont présents', () => {
   assert.match(source, /heading: 'Connexion'/);
   assert.match(source, /heading: 'Tableau blanc'/);
 });
-test('profil, dialog de conflit et palette présents dans le template', () => {
-  for (const id of ['profile-trigger', 'context-menu', 'sync-dialog', 'palette', 'board']) {
+test('profil, dialog de conflit, palette et bouton de masquage des points présents', () => {
+  for (const id of ['profile-trigger', 'context-menu', 'sync-dialog', 'palette', 'board', 'ports-toggle', 'edge-line-type']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
 });

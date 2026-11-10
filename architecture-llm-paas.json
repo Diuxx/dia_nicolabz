@@ -1,0 +1,335 @@
+{
+  "version": 1,
+  "name": "Architecture LLM ? PaaS",
+  "customIcons": [
+    {
+      "id": "custom-document",
+      "name": "Document",
+      "group": "Mes SVG",
+      "color": "#e8f8ff",
+      "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNMjUgMTJoMzRsMTcgMTd2NTlIMjV6IiBmaWxsPSIjZmZmIiBzdHJva2U9IiMyNDM0NUYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik01OSAxMnYxOWgxN00zNSA0NWgzMU0zNSA1NmgzMU0zNSA2N2gyNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik01OSAxMnYxOWgxNyIgZmlsbD0iI0VBRjVGRiIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4="
+    },
+    {
+      "id": "custom-llm-chip",
+      "name": "LLM",
+      "group": "Mes SVG",
+      "color": "#e8f8ff",
+      "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB4PSIyMiIgeT0iMjQiIHdpZHRoPSI1NiIgaGVpZ2h0PSI1MiIgcng9IjgiIGZpbGw9IiNFQUY1RkYiIHN0cm9rZT0iIzI0MzQ1RiIgc3Ryb2tlLXdpZHRoPSI0Ii8+PHBhdGggZD0iTTMxIDE1djltMTMtOXY5bTEzLTl2OW0xMy05djlNMzEgNzZ2OW0xMy05djltMTMtOXY5bTEzLTl2OU0xMyAzNGg5bS05IDE0aDltLTkgMTRoOW01Ni0yOGg5bS05IDE0aDltLTkgMTRoOSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik00MCA0M2gyMG0tMjAgOWgyMG0tMjAgOWgxMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjY3IiBjeT0iNjEiIHI9IjMiIGZpbGw9IiNGRkI4NkEiLz48L3N2Zz4="
+    },
+    {
+      "id": "custom-users",
+      "name": "Utilisateurs",
+      "group": "Mes SVG",
+      "color": "#e8f8ff",
+      "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSIzOCIgY3k9IjMxIiByPSIxMiIgZmlsbD0iIzc4QzlGRiIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjMuNSIvPjxjaXJjbGUgY3g9IjY4IiBjeT0iMzgiIHI9IjkiIGZpbGw9IiNDOEIyRkYiIHN0cm9rZT0iIzI0MzQ1RiIgc3Ryb2tlLXdpZHRoPSIzLjUiLz48cGF0aCBkPSJNMTYgNzVWNjVjMC0xMiAxMC0yMSAyMi0yMXMyMiA5IDIyIDIxdjEweiIgZmlsbD0iI0I4RThGNSIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjMuNSIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik01NyA1NWMzLTUgOC04IDE0LTggMTAgMCAxNyA3IDE3IDE3djhINjMiIGZpbGw9IiNCOEU4RjUiIHN0cm9rZT0iIzI0MzQ1RiIgc3Ryb2tlLXdpZHRoPSIzLjUiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4="
+    },
+    {
+      "id": "custom-app-folder",
+      "name": "Application",
+      "group": "Mes SVG",
+      "color": "#e8f8ff",
+      "dataUrl": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBkPSJNMTUgMjloMjhsOCA4aDM0djQzSDE1eiIgZmlsbD0iI2ZmZiIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTUgNDJoNzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzI0MzQ1RiIgc3Ryb2tlLXdpZHRoPSIzIi8+PHBhdGggZD0iTTM5IDUzaDI5djE5SDM5eiIgZmlsbD0iI0VBRjVGRiIgc3Ryb2tlPSIjMjQzNDVGIiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNNDUgNjBoMTdtLTE3IDZoMTEiIHN0cm9rZT0iIzI0MzQ1RiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg=="
+    }
+  ],
+  "nodes": [
+    {
+      "id": "paas",
+      "iconId": "cloud",
+      "title": "Solution PaaS",
+      "description": "Plateforme h?bergeant les services applicatifs",
+      "x": 270,
+      "y": 30,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "database",
+      "iconId": "database",
+      "title": "Base de donn?es",
+      "description": "Stockage persistant de l?application",
+      "x": 475,
+      "y": 0,
+      "color": "#fff3df"
+    },
+    {
+      "id": "challenger",
+      "iconId": "custom-document",
+      "title": "Challenger",
+      "description": "Document d?entr?e",
+      "x": 760,
+      "y": 0,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "spec",
+      "iconId": "custom-document",
+      "title": "R?dacteur Spec",
+      "description": "Sp?cifications fonctionnelles",
+      "x": 900,
+      "y": 0,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "llm",
+      "iconId": "custom-llm-chip",
+      "title": "Query LLM",
+      "description": "Interpr?tation et g?n?ration assist?es par LLM",
+      "x": 790,
+      "y": 200,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "dba",
+      "iconId": "custom-document",
+      "title": "DBA",
+      "description": "Revue et administration des donn?es",
+      "x": 1060,
+      "y": 110,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "developer",
+      "iconId": "custom-document",
+      "title": "D?veloppeur",
+      "description": "Revue et int?gration du code",
+      "x": 1060,
+      "y": 270,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "nginx",
+      "iconId": "gateway",
+      "title": "NGINX",
+      "description": "Reverse proxy et routage HTTP",
+      "x": 70,
+      "y": 430,
+      "color": "#f4edff"
+    },
+    {
+      "id": "app1",
+      "iconId": "custom-app-folder",
+      "title": "App 1",
+      "description": "Service applicatif h?berg? sur le PaaS",
+      "x": 300,
+      "y": 365,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "app2",
+      "iconId": "custom-app-folder",
+      "title": "App 2",
+      "description": "Service applicatif h?berg? sur le PaaS",
+      "x": 300,
+      "y": 485,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "app3",
+      "iconId": "custom-app-folder",
+      "title": "App 3",
+      "description": "Service applicatif h?berg? sur le PaaS",
+      "x": 300,
+      "y": 605,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "backend",
+      "iconId": "server",
+      "title": "Backend",
+      "description": "Services m?tier et API",
+      "x": 710,
+      "y": 410,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "frontend",
+      "iconId": "browser",
+      "title": "Frontend",
+      "description": "Interface web",
+      "x": 710,
+      "y": 625,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "users",
+      "iconId": "custom-users",
+      "title": "Demandeurs",
+      "description": "Utilisateurs de l?application",
+      "x": 1030,
+      "y": 625,
+      "color": "#e8f8ff"
+    },
+    {
+      "id": "user-final",
+      "iconId": "desktop",
+      "title": "Utilisateur final",
+      "description": "Acc?s au service via NGINX",
+      "x": 20,
+      "y": 680,
+      "color": "#f1f3ff"
+    },
+    {
+      "id": "github",
+      "iconId": "git",
+      "title": "GitHub",
+      "description": "D?p?t source et livraison continue",
+      "x": 320,
+      "y": 790,
+      "color": "#f1f3ff"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "challenger",
+      "to": "llm",
+      "label": "Brief",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-2",
+      "from": "spec",
+      "to": "llm",
+      "label": "Sp?cifications",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-3",
+      "from": "llm",
+      "to": "dba",
+      "label": "Requ?te / r?sultats",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-4",
+      "from": "llm",
+      "to": "developer",
+      "label": "Code / revue",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-5",
+      "from": "llm",
+      "to": "backend",
+      "label": "Appels LLM",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-6",
+      "from": "database",
+      "to": "backend",
+      "label": "SQL",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-7",
+      "from": "user-final",
+      "to": "nginx",
+      "label": "HTTPS",
+      "fromPort": "top",
+      "toPort": "bottom",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-8",
+      "from": "nginx",
+      "to": "app1",
+      "label": "HTTP",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-9",
+      "from": "nginx",
+      "to": "app2",
+      "label": "HTTP",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-10",
+      "from": "nginx",
+      "to": "app3",
+      "label": "HTTP",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-11",
+      "from": "app1",
+      "to": "backend",
+      "label": "Service",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-12",
+      "from": "app2",
+      "to": "backend",
+      "label": "Service",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-13",
+      "from": "app3",
+      "to": "backend",
+      "label": "Service",
+      "fromPort": "right",
+      "toPort": "left",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-14",
+      "from": "paas",
+      "to": "app1",
+      "label": "H?bergement",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-15",
+      "from": "github",
+      "to": "app3",
+      "label": "CI/CD",
+      "fromPort": "top",
+      "toPort": "bottom",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-16",
+      "from": "backend",
+      "to": "frontend",
+      "label": "API",
+      "fromPort": "bottom",
+      "toPort": "top",
+      "lineType": "arrow-right"
+    },
+    {
+      "id": "edge-17",
+      "from": "users",
+      "to": "frontend",
+      "label": "Requ?tes",
+      "fromPort": "left",
+      "toPort": "right",
+      "lineType": "arrow-right"
+    }
+  ]
+}
