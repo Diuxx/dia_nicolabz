@@ -8,6 +8,8 @@
 - Drag & drop sur le tableau, sélection multiple de composants avec Ctrl/Cmd ou Maj + clic puis déplacement groupé, clusters rectangulaires transparents au contour pointillé (outil G), dessinés par glisser sur le tableau, déplaçables et renommables, exportés en JSON/PNG et placés derrière cartes et connexions. Connexions depuis quatre points d’accroche avec styles configurables, possibilité de masquer les points d’accroche et export PNG sans ces points, zoom et déplacement du canevas.
 - L’origine est au centre du canevas : cartes et clusters peuvent être placés à gauche et au-dessus, avec des coordonnées négatives conservées dans le JSON. Les projets existants gardent leurs coordonnées.
 - Le style d’une liaison peut être une ligne continue sans flèche, une ligne pointillée ou une ligne avec flèche à une ou aux deux extrémités ; ce choix est conservé dans le JSON et l’export PNG.
+- Les quatre points d’accroche des clusters permettent aussi de les relier aux composants ou à d’autres clusters, par clics ou glisser-déposer. Les liaisons suivent les clusters déplacés et sont conservées dans le JSON et l’export PNG.
+- Ctrl/Cmd+C, X et V copient, coupent et collent les cartes sélectionnées ou un cluster, sans leurs liaisons ni les cartes contenues dans le cluster. Couper supprime aussi les liaisons reliées aux éléments coupés ; Ctrl/Cmd+Z permet d’annuler. Le presse-papiers interne est limité à l’onglet et vidé lors du changement de projet.
 - Clic droit **sur un composant** : renommer, dupliquer, commencer une connexion, changer la couleur, supprimer.
 - Clic droit **sur une connexion** : modifier le libellé, inverser le sens, supprimer.
 - Clic droit **sur le tableau** : ajouter une note, une fonction, un conteneur, ajuster la vue, exporter JSON.

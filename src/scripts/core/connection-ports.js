@@ -5,13 +5,25 @@ const PORT_NORMALS = {
   left: { x: -1, y: 0 }
 };
 
-export function inferConnectionPorts(source, target, nodeWidth, nodeHeight) {
-  const deltaX = target.x + nodeWidth / 2 - (source.x + nodeWidth / 2);
-  const deltaY = target.y + nodeHeight / 2 - (source.y + nodeHeight / 2);
+export function inferConnectionPorts(source, target, nodeWidth, nodeHeight, targetWidth = nodeWidth, targetHeight = nodeHeight) {
+  const deltaX = target.x + targetWidth / 2 - (source.x + nodeWidth / 2);
+  const deltaY = target.y + targetHeight / 2 - (source.y + nodeHeight / 2);
   if (Math.abs(deltaX) >= Math.abs(deltaY)) {
     return deltaX >= 0 ? { fromPort: 'right', toPort: 'left' } : { fromPort: 'left', toPort: 'right' };
   }
   return deltaY >= 0 ? { fromPort: 'bottom', toPort: 'top' } : { fromPort: 'top', toPort: 'bottom' };
+}
+
+export function resolveConnectionEndpoint(project, id, kind = 'node') {
+  if (kind === 'node') return project.nodes.find((node) => node.id === id);
+  if (kind === 'cluster') return project.clusters.find((cluster) => cluster.id === id);
+  return undefined;
+}
+
+export function connectionEndpointSize(endpoint, kind, nodeWidth, nodeHeight) {
+  return kind === 'cluster'
+    ? { width: endpoint.width, height: endpoint.height }
+    : { width: nodeWidth, height: nodeHeight };
 }
 
 export function connectionPortPoint(node, port, nodeWidth, nodeHeight) {

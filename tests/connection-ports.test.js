@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { connectionPortNormal, connectionPortPoint, inferConnectionPorts } from '../src/scripts/core/connection-ports.js';
+import { connectionEndpointSize, connectionPortNormal, connectionPortPoint, inferConnectionPorts, resolveConnectionEndpoint } from '../src/scripts/core/connection-ports.js';
 
 const size = { width: 158, height: 141 };
 
@@ -9,6 +9,20 @@ test('les ports les plus proches sont choisis selon l’axe dominant', () => {
   assert.deepEqual(inferConnectionPorts({ x: 0, y: 0 }, { x: 20, y: 300 }, size.width, size.height), { fromPort: 'bottom', toPort: 'top' });
   assert.deepEqual(inferConnectionPorts({ x: 300, y: 0 }, { x: 0, y: 20 }, size.width, size.height), { fromPort: 'left', toPort: 'right' });
   assert.deepEqual(inferConnectionPorts({ x: 0, y: 300 }, { x: 20, y: 0 }, size.width, size.height), { fromPort: 'top', toPort: 'bottom' });
+});
+
+test('les ports utilisent les dimensions réelles des clusters et distinguent les types', () => {
+  const project = { nodes: [{ id: 'same', x: 300, y: 0 }], clusters: [{ id: 'same', x: -100, y: -50, width: 600, height: 300 }] };
+  const cluster = resolveConnectionEndpoint(project, 'same', 'cluster');
+  const node = resolveConnectionEndpoint(project, 'same');
+  assert.notEqual(cluster, node);
+  assert.equal(resolveConnectionEndpoint(project, 'same', 'invalid'), undefined);
+  assert.deepEqual(connectionEndpointSize(cluster, 'cluster', size.width, size.height), { width: 600, height: 300 });
+  assert.deepEqual(connectionPortPoint(cluster, 'top', cluster.width, cluster.height), { x: 200, y: -50 });
+  assert.deepEqual(connectionPortPoint(cluster, 'right', cluster.width, cluster.height), { x: 500, y: 100 });
+  assert.deepEqual(connectionPortPoint(cluster, 'bottom', cluster.width, cluster.height), { x: 200, y: 250 });
+  assert.deepEqual(connectionPortPoint(cluster, 'left', cluster.width, cluster.height), { x: -100, y: 100 });
+  assert.deepEqual(inferConnectionPorts(cluster, node, 600, 300, size.width, size.height), { fromPort: 'right', toPort: 'left' });
 });
 
 test('les points et normales des ports correspondent aux quatre côtés', () => {

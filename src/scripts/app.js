@@ -1,9 +1,10 @@
 import { mountIdentity } from './ui/identity-ui.js';
 import { createContextMenu } from './ui/context-menu.js';
 import { clampGroupDelta } from './core/multi-select.js';
-import { connectionPortNormal, connectionPortPoint, inferConnectionPorts } from './core/connection-ports.js';
+import { connectionEndpointSize, connectionPortNormal, connectionPortPoint, inferConnectionPorts, resolveConnectionEndpoint } from './core/connection-ports.js';
 import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.js';
 import { clusterBounds } from './core/cluster-geometry.js';
+import { createPastedItems } from './core/clipboard.js';
 
 /* ArchCanvas — dependency-free browser whiteboard. No external network calls. */
 (() => {
@@ -28,7 +29,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
   const deepCopy = (data) => JSON.parse(JSON.stringify(data));
 
   const ui = {
-    board: $('board'), world: $('world'), nodes: $('node-layer'), clusters: $('cluster-layer'), edges: $('edge-layer'),
+    board: $('board'), world: $('world'), nodes: $('node-layer'), clusters: $('cluster-layer'), clusterPorts: $('cluster-port-layer'), edges: $('edge-layer'),
     preview: $('preview-layer'), palette: $('palette'), name: $('project-name'),
     search: $('icon-search'), inspectorEmpty: $('inspector-empty'),
     nodeInspector: $('node-inspector'), edgeInspector: $('edge-inspector'),
@@ -65,7 +66,9 @@ import { clusterBounds } from './core/cluster-geometry.js';
   let isSpaceDown = false;
   let interaction = null;
   let pendingSourceId = null;
+  let pendingSourceKind = 'node';
   let pendingSourcePort = null;
+  let clipboard = null;
   let past = [];
   let future = [];
   let toastTimer;
@@ -129,16 +132,21 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const edgeIds = new Set();
     const validPorts = new Set(['top', 'right', 'bottom', 'left']);
     const edges = data.edges.map((edge) => {
+      const fromKind = edge.fromKind === undefined ? 'node' : edge.fromKind;
+      const toKind = edge.toKind === undefined ? 'node' : edge.toKind;
+      const from = resolveConnectionEndpoint({ nodes, clusters }, edge.from, fromKind);
+      const to = resolveConnectionEndpoint({ nodes, clusters }, edge.to, toKind);
       if (typeof edge.id !== 'string' || !/^[\w-]{1,90}$/.test(edge.id) || edgeIds.has(edge.id) ||
-          !nodeIds.has(edge.from) || !nodeIds.has(edge.to) || edge.from === edge.to ||
+          !from || !to || (edge.from === edge.to && fromKind === toKind) ||
           (edge.fromPort && !validPorts.has(edge.fromPort)) || (edge.toPort && !validPorts.has(edge.toPort))) {
         throw new Error('Une connexion du projet est invalide.');
       }
       edgeIds.add(edge.id);
-      const fromNode = nodes.find((node) => node.id === edge.from);
-      const toNode = nodes.find((node) => node.id === edge.to);
-      const inferredPorts = inferConnectionPorts(fromNode, toNode, NODE_W, NODE_H);
+      const fromSize = connectionEndpointSize(from, fromKind, NODE_W, NODE_H);
+      const toSize = connectionEndpointSize(to, toKind, NODE_W, NODE_H);
+      const inferredPorts = inferConnectionPorts(from, to, fromSize.width, fromSize.height, toSize.width, toSize.height);
       return { id: edge.id, from: edge.from, to: edge.to, label: String(edge.label || '').slice(0, 50),
+        fromKind, toKind,
         fromPort: edge.fromPort || inferredPorts.fromPort, toPort: edge.toPort || inferredPorts.toPort,
         lineType: normalizeEdgeLineType(edge.lineType) };
     });
@@ -277,6 +285,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
 
   function renderClusters() {
     ui.clusters.replaceChildren();
+    ui.clusterPorts.replaceChildren();
     const clusters = interaction?.kind === 'draw-cluster'
       ? [...project.clusters, interaction.cluster]
       : project.clusters;
@@ -291,11 +300,29 @@ import { clusterBounds } from './core/cluster-geometry.js';
         event.stopPropagation();
         if (mode !== 'select') return;
         event.preventDefault();
+        pendingSourceId = null;
+        pendingSourcePort = null;
+        updatePreview();
         select({ kind: 'cluster', id: cluster.id });
         interaction = { kind: 'move-cluster', id: cluster.id, x: cluster.x, y: cluster.y,
           startClientX: event.clientX, startClientY: event.clientY, before: deepCopy(project), moved: false };
       });
       ui.clusters.appendChild(group);
+      if (interaction?.kind === 'draw-cluster' && cluster === interaction.cluster) continue;
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        const point = connectionPortPoint(cluster, side, cluster.width, cluster.height);
+        const port = svgElement('circle', { cx: point.x, cy: point.y, r: 7,
+          class: `cluster-port${pendingSourceId === cluster.id && pendingSourceKind === 'cluster' ? ' pending' : ''}`,
+          'data-cluster-id': cluster.id, 'data-port': side });
+        const title = svgElement('title');
+        title.textContent = `Démarrer ou terminer une connexion ${side === 'top' ? 'en haut' : side === 'right' ? 'à droite' : side === 'bottom' ? 'en bas' : 'à gauche'}`;
+        port.appendChild(title);
+        port.addEventListener('pointerdown', (event) => {
+          if (event.button !== 0 || isSpaceDown || mode !== 'select') return;
+          startOrCompleteConnection(event, cluster.id, 'cluster', side);
+        });
+        ui.clusterPorts.appendChild(port);
+      }
     }
   }
 
@@ -331,7 +358,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       if (!isNote) {
         for (const side of ['top', 'right', 'bottom', 'left']) {
           const port = document.createElement('span');
-          port.className = `port port-${side}${pendingSourceId === node.id ? ' pending' : ''}`;
+          port.className = `port port-${side}${pendingSourceId === node.id && pendingSourceKind === 'node' ? ' pending' : ''}`;
           port.dataset.port = side;
           port.title = `Démarrer ou terminer une connexion ${side === 'top' ? 'en haut' : side === 'right' ? 'à droite' : side === 'bottom' ? 'en bas' : 'à gauche'}`;
           element.appendChild(port);
@@ -345,14 +372,18 @@ import { clusterBounds } from './core/cluster-geometry.js';
   }
 
   function getEndpoints(edge) {
-    const from = project.nodes.find((node) => node.id === edge.from);
-    const to = project.nodes.find((node) => node.id === edge.to);
+    const fromKind = edge.fromKind || 'node';
+    const toKind = edge.toKind || 'node';
+    const from = resolveConnectionEndpoint(project, edge.from, fromKind);
+    const to = resolveConnectionEndpoint(project, edge.to, toKind);
     if (!from || !to) return null;
-    const inferred = inferConnectionPorts(from, to, NODE_W, NODE_H);
+    const fromSize = connectionEndpointSize(from, fromKind, NODE_W, NODE_H);
+    const toSize = connectionEndpointSize(to, toKind, NODE_W, NODE_H);
+    const inferred = inferConnectionPorts(from, to, fromSize.width, fromSize.height, toSize.width, toSize.height);
     const fromPort = edge.fromPort || inferred.fromPort;
     const toPort = edge.toPort || inferred.toPort;
-    const start = connectionPortPoint(from, fromPort, NODE_W, NODE_H);
-    const end = connectionPortPoint(to, toPort, NODE_W, NODE_H);
+    const start = connectionPortPoint(from, fromPort, fromSize.width, fromSize.height);
+    const end = connectionPortPoint(to, toPort, toSize.width, toSize.height);
     return { x1: start.x, y1: start.y, x2: end.x, y2: end.y,
       fromNormal: connectionPortNormal(fromPort), toNormal: connectionPortNormal(toPort) };
   }
@@ -406,12 +437,13 @@ import { clusterBounds } from './core/cluster-geometry.js';
   function updatePreview(point) {
     ui.preview.replaceChildren();
     if (!pendingSourceId || !pendingSourcePort) return;
-    const from = project.nodes.find((node) => node.id === pendingSourceId);
+    const from = resolveConnectionEndpoint(project, pendingSourceId, pendingSourceKind);
     if (!from) return;
-    const start = connectionPortPoint(from, pendingSourcePort, NODE_W, NODE_H);
+    const size = connectionEndpointSize(from, pendingSourceKind, NODE_W, NODE_H);
+    const start = connectionPortPoint(from, pendingSourcePort, size.width, size.height);
     const normal = connectionPortNormal(pendingSourcePort);
     const target = point || { x: start.x + normal.x * 90, y: start.y + normal.y * 90 };
-    const targetPort = inferConnectionPorts(from, { x: target.x - NODE_W / 2, y: target.y - NODE_H / 2 }, NODE_W, NODE_H).toPort;
+    const targetPort = inferConnectionPorts(from, { x: target.x, y: target.y }, size.width, size.height, 0, 0).toPort;
     const endNormal = connectionPortNormal(targetPort);
     ui.preview.appendChild(svgElement('path', { d: bezier(start.x, start.y, target.x, target.y, normal, endNormal), class: 'preview-path' }));
   }
@@ -508,22 +540,44 @@ import { clusterBounds } from './core/cluster-geometry.js';
     showToast('Composant ajouté.');
   }
 
-  function completeConnection(fromId, toId, toPort) {
+  function completeConnection(fromId, fromKind, toId, toKind, toPort) {
     const fromPort = pendingSourcePort;
     pendingSourceId = null;
     pendingSourcePort = null;
     ui.preview.replaceChildren();
-    if (fromId === toId) return showToast('Une connexion doit relier deux composants différents.');
-    if (project.edges.some((edge) => edge.from === fromId && edge.to === toId)) return showToast('Cette connexion existe déjà.');
-    const from = project.nodes.find((node) => node.id === fromId);
-    const to = project.nodes.find((node) => node.id === toId);
-    if (!from || !to || from.iconId === 'note' || to.iconId === 'note') return;
-    const inferred = inferConnectionPorts(from, to, NODE_W, NODE_H);
-    const edge = { id: uid(), from: fromId, to: toId, fromPort: fromPort || inferred.fromPort,
+    renderNodes();
+    renderClusters();
+    if (fromId === toId && fromKind === toKind) return showToast('Une connexion doit relier deux éléments différents.');
+    if (project.edges.some((edge) => edge.from === fromId && (edge.fromKind || 'node') === fromKind &&
+        edge.to === toId && (edge.toKind || 'node') === toKind)) return showToast('Cette connexion existe déjà.');
+    if (project.edges.length >= 1000) return showToast('Limite de 1 000 connexions atteinte.');
+    const from = resolveConnectionEndpoint(project, fromId, fromKind);
+    const to = resolveConnectionEndpoint(project, toId, toKind);
+    if (!from || !to || from.iconId === 'note' || to.iconId === 'note') return showToast('Impossible de relier ces éléments.');
+    const fromSize = connectionEndpointSize(from, fromKind, NODE_W, NODE_H);
+    const toSize = connectionEndpointSize(to, toKind, NODE_W, NODE_H);
+    const inferred = inferConnectionPorts(from, to, fromSize.width, fromSize.height, toSize.width, toSize.height);
+    const edge = { id: uid(), from: fromId, fromKind, to: toId, toKind, fromPort: fromPort || inferred.fromPort,
       toPort: toPort || inferred.toPort, label: '' };
     changeProject(() => project.edges.push(edge));
     select({ kind: 'edge', id: edge.id });
     showToast('Connexion créée. Vous pouvez lui ajouter un libellé.');
+  }
+
+  function startOrCompleteConnection(event, id, kind, side) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (pendingSourceId) {
+      completeConnection(pendingSourceId, pendingSourceKind, id, kind, side);
+      return;
+    }
+    pendingSourceId = id;
+    pendingSourceKind = kind;
+    pendingSourcePort = side;
+    interaction = { kind: 'connect', moved: false, startClientX: event.clientX, startClientY: event.clientY };
+    renderNodes();
+    renderClusters();
+    updatePreview(pointToWorld(event.clientX, event.clientY));
   }
 
   function onNodePointerDown(event) {
@@ -533,18 +587,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const nodeId = element.dataset.nodeId;
     const port = event.target.closest('.port');
     if (port && !isSpaceDown && mode !== 'pan') {
-      event.stopPropagation();
-      event.preventDefault();
-      const portSide = port.dataset.port;
-      if (pendingSourceId) {
-        completeConnection(pendingSourceId, nodeId, portSide);
-        return;
-      }
-      pendingSourceId = nodeId;
-      pendingSourcePort = portSide;
-      interaction = { kind: 'connect', moved: false, startClientX: event.clientX, startClientY: event.clientY };
-      renderNodes();
-      updatePreview(pointToWorld(event.clientX, event.clientY));
+      startOrCompleteConnection(event, nodeId, 'node', port.dataset.port);
       return;
     }
     if (isSpaceDown || mode === 'pan') return;
@@ -564,6 +607,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       ? { kind: 'node', id: selectedNodeIds.values().next().value }
       : null;
     renderNodes();
+    renderClusters();
     renderEdges();
     renderInspector();
     if (!selectedNodeIds.has(nodeId)) return;
@@ -595,15 +639,8 @@ import { clusterBounds } from './core/cluster-geometry.js';
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
       cluster.x = clamp(Math.round(interaction.x + dx), CANVAS_MIN_X, CANVAS_W - cluster.width);
       cluster.y = clamp(Math.round(interaction.y + dy), CANVAS_MIN_Y, CANVAS_H - cluster.height);
-      const element = [...ui.clusters.children].find((item) => item.dataset.clusterId === cluster.id);
-      if (element) {
-        const outline = element.querySelector('.cluster-outline');
-        const label = element.querySelector('.cluster-title');
-        outline.setAttribute('x', cluster.x);
-        outline.setAttribute('y', cluster.y);
-        label.setAttribute('x', cluster.x + 12);
-        label.setAttribute('y', cluster.y + 22);
-      }
+      renderClusters();
+      renderEdges();
     } else if (interaction.kind === 'move') {
       const dx = (event.clientX - interaction.startClientX) / view.zoom;
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
@@ -659,13 +696,15 @@ import { clusterBounds } from './core/cluster-geometry.js';
       }
     }
     if (last.kind === 'connect') {
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.port');
+      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('.port, .cluster-port');
       const targetNode = target?.closest('[data-node-id]')?.dataset.nodeId;
-      if (targetNode && pendingSourceId) {
-        completeConnection(pendingSourceId, targetNode, target.dataset.port);
+      const targetCluster = target?.dataset.clusterId;
+      if (last.moved && (targetNode || targetCluster) && pendingSourceId) {
+        completeConnection(pendingSourceId, pendingSourceKind, targetNode || targetCluster, targetNode ? 'node' : 'cluster', target.dataset.port);
       } else {
         updatePreview();
         renderNodes();
+        renderClusters();
         if (last.moved) showToast('Relâchez sur un point d’accroche pour terminer la connexion.');
       }
     }
@@ -709,15 +748,73 @@ import { clusterBounds } from './core/cluster-geometry.js';
     changeProject(() => {
       if (selected.kind === 'node') {
         project.nodes = project.nodes.filter((node) => !nodeIds.has(node.id));
-        project.edges = project.edges.filter((edge) => !nodeIds.has(edge.from) && !nodeIds.has(edge.to));
+        project.edges = project.edges.filter((edge) =>
+          !((edge.fromKind || 'node') === 'node' && nodeIds.has(edge.from)) &&
+          !((edge.toKind || 'node') === 'node' && nodeIds.has(edge.to)));
       } else if (selected.kind === 'cluster') {
         project.clusters = project.clusters.filter((cluster) => cluster.id !== selected.id);
+        project.edges = project.edges.filter((edge) =>
+          !(edge.fromKind === 'cluster' && edge.from === selected.id) &&
+          !(edge.toKind === 'cluster' && edge.to === selected.id));
       } else {
         project.edges = project.edges.filter((edge) => edge.id !== selected.id);
       }
     });
+    pendingSourceId = null;
+    pendingSourcePort = null;
+    updatePreview();
     select(null);
     showToast(nodeIds.size > 1 ? 'Composants supprimés.' : 'Élément supprimé.');
+  }
+
+  function copySelection(cut = false) {
+    const nodes = project.nodes.filter((node) => selectedNodeIds.has(node.id));
+    const cluster = selection?.kind === 'cluster'
+      ? project.clusters.find((item) => item.id === selection.id)
+      : null;
+    if (!nodes.length && !cluster) {
+      showToast('Sélectionnez une carte ou un cluster à copier.');
+      return;
+    }
+    const icons = project.customIcons.filter((icon) => nodes.some((node) => node.iconId === icon.id));
+    clipboard = { nodes: deepCopy(nodes), clusters: cluster ? [deepCopy(cluster)] : [], icons: deepCopy(icons), pasteCount: 0 };
+    if (cut) deleteSelection();
+    showToast(cut ? 'Sélection coupée.' : 'Sélection copiée.');
+  }
+
+  function pasteSelection() {
+    if (!clipboard) return showToast('Aucune carte ou aucun cluster copié.');
+    if (project.nodes.length + clipboard.nodes.length > 400 || project.clusters.length + clipboard.clusters.length > 100) {
+      return showToast('Collage impossible : limite de composants ou de clusters atteinte.');
+    }
+    if (clipboard.icons.some((icon) => !project.customIcons.some((current) => current.id === icon.id && current.dataUrl === icon.dataUrl))) {
+      return showToast('Collage impossible : une icône SVG copiée est absente ou a changé dans ce projet.');
+    }
+    if (clipboard.nodes.length) {
+      const xs = clipboard.nodes.map((node) => node.x);
+      const ys = clipboard.nodes.map((node) => node.y);
+      if (Math.max(...xs) - Math.min(...xs) + NODE_W > CANVAS_W - CANVAS_MIN_X ||
+          Math.max(...ys) - Math.min(...ys) + NODE_H > CANVAS_H - CANVAS_MIN_Y) {
+        return showToast('Collage impossible : la sélection dépasse les limites du canevas.');
+      }
+    }
+    const { nodes, clusters } = createPastedItems(clipboard, CANVAS_LIMITS, { width: NODE_W, height: NODE_H }, uid);
+    pendingSourceId = null;
+    pendingSourcePort = null;
+    changeProject(() => {
+      project.nodes.push(...nodes);
+      project.clusters.push(...clusters);
+    });
+    clipboard.pasteCount++;
+    if (clusters.length) select({ kind: 'cluster', id: clusters[0].id });
+    else {
+      selectedNodeIds = new Set(nodes.map((node) => node.id));
+      selection = nodes.length === 1 ? { kind: 'node', id: nodes[0].id } : null;
+      renderNodes();
+      renderEdges();
+      renderInspector();
+    }
+    showToast('Sélection collée.');
   }
 
   function duplicateNode() {
@@ -902,6 +999,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const imported = validateProject(data);
     recordChange();
     project = imported;
+    clipboard = null;
     selection = null;
     selectedNodeIds.clear();
     pendingSourceId = null;
@@ -911,14 +1009,15 @@ import { clusterBounds } from './core/cluster-geometry.js';
     save();
   }
 
-  function beginConnectionFrom(nodeId) {
-    const source = project.nodes.find((node) => node.id === nodeId);
+  function beginConnectionFrom(nodeId, kind = 'node') {
+    const source = resolveConnectionEndpoint(project, nodeId, kind);
     if (!source || source.iconId === 'note') return;
     pendingSourceId = nodeId;
+    pendingSourceKind = kind;
     pendingSourcePort = 'right';
-    select({ kind: 'node', id: nodeId });
+    select({ kind, id: nodeId });
     updatePreview();
-    showToast('Clique sur le port d’entrée d’un autre composant pour le relier.');
+    showToast('Clique sur le point d’accroche d’un autre élément pour le relier.');
   }
 
   function rotateNodeColor(nodeId) {
@@ -931,11 +1030,16 @@ import { clusterBounds } from './core/cluster-geometry.js';
   function reverseConnection(edgeId) {
     const edge = project.edges.find((entry) => entry.id === edgeId);
     if (!edge) return;
-    if (project.edges.some((entry) => entry.id !== edgeId && entry.from === edge.to && entry.to === edge.from)) {
+    if (project.edges.some((entry) => entry.id !== edgeId && entry.from === edge.to && entry.to === edge.from &&
+        (entry.fromKind || 'node') === (edge.toKind || 'node') && (entry.toKind || 'node') === (edge.fromKind || 'node'))) {
       showToast('Une connexion dans ce sens existe déjà.');
       return;
     }
-    changeProject(() => { [edge.from, edge.to] = [edge.to, edge.from]; });
+    changeProject(() => {
+      [edge.from, edge.to] = [edge.to, edge.from];
+      [edge.fromKind, edge.toKind] = [edge.toKind || 'node', edge.fromKind || 'node'];
+      [edge.fromPort, edge.toPort] = [edge.toPort, edge.fromPort];
+    });
   }
 
   function openBoardContextMenu(event) {
@@ -951,6 +1055,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       select({ kind: 'cluster', id: clusterId });
       contextMenu.open({ x: event.clientX, y: event.clientY, heading: cluster.title, items: [
         { label: '✎  Renommer', run: () => $('cluster-title-input').focus() },
+        { label: '↗  Démarrer une connexion', run: () => beginConnectionFrom(clusterId, 'cluster') },
         { label: '✕  Supprimer', danger: true, run: deleteSelection }
       ] });
       return;
@@ -1073,6 +1178,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       if ((project.nodes.length || project.clusters.length) && !window.confirm('Créer un tableau vierge ? Le projet actuel reste récupérable uniquement si vous l’avez exporté.')) return;
       recordChange();
       project = { version: 1, name: 'Nouvelle architecture', nodes: [], edges: [], clusters: [], customIcons: deepCopy(project.customIcons) };
+      clipboard = null;
       selection = null;
       selectedNodeIds.clear();
       redraw();
@@ -1092,6 +1198,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
         const imported = validateProject(JSON.parse(await file.text()));
         recordChange();
         project = imported;
+        clipboard = null;
         selection = null;
         selectedNodeIds.clear();
         pendingSourceId = null;
@@ -1109,7 +1216,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       await addCustomSvgFiles(files);
     });
     window.addEventListener('keydown', (event) => {
-      const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+      const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
       if (editing) return;
       if (event.key === 'Escape') {
         contextMenu.close();
@@ -1118,12 +1225,22 @@ import { clusterBounds } from './core/cluster-geometry.js';
         interaction = null;
         updatePreview();
         renderNodes();
+        renderClusters();
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      const shortcut = (event.ctrlKey || event.metaKey) && !event.altKey;
+      const key = event.key.toLowerCase();
+      if (shortcut && !event.shiftKey && ['c', 'x', 'v'].includes(key)) {
+        if (key !== 'v' && window.getSelection()?.isCollapsed === false) return;
+        event.preventDefault();
+        if (event.repeat) return;
+        if (key === 'v') pasteSelection(); else copySelection(key === 'x');
+      } else if (shortcut && key === 'z') {
         event.preventDefault();
         if (event.shiftKey) redo(); else undo();
-      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'y') {
+      } else if (shortcut && key === 'y') {
         event.preventDefault(); redo();
+      } else if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault(); deleteSelection();
       } else if (event.key.toLowerCase() === 'g') setMode(mode === 'cluster' ? 'select' : 'cluster');

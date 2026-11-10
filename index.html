@@ -45,7 +45,7 @@ title: ArchCanvas — Architecture whiteboard
             <svg class="connections" id="connections" xmlns="http://www.w3.org/2000/svg" viewBox="-3200 -2400 6400 4800" aria-label="Connexions entre les composants">
               <g id="cluster-layer" class="cluster-layer" aria-label="Clusters"></g>
               <defs><marker id="arrow-marker" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 7 4 1 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="arrow-marker-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M7 1 1 4 7 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-              <g id="edge-layer"></g><g id="preview-layer"></g>
+              <g id="edge-layer"></g><g id="preview-layer"></g><g id="cluster-port-layer"></g>
             </svg>
             <div class="node-layer" id="node-layer"></div>
           </div>
@@ -77,7 +77,7 @@ title: ArchCanvas — Architecture whiteboard
         </div>
         <div id="edge-inspector" hidden><div class="connection-header">↗ <strong>Connexion sélectionnée</strong></div><label class="field-label" for="edge-label">Libellé (ex. HTTPS, SQL)</label><input id="edge-label" class="field" maxlength="50" placeholder="HTTPS : 443"><label class="field-label" for="edge-line-type">Style de liaison</label><select id="edge-line-type" class="field"><option value="arrow-right">Flèche vers la droite</option><option value="arrow-left">Flèche vers la gauche</option><option value="arrow-both">Flèches aux deux extrémités</option><option value="dotted">Pointillés sans flèche</option><option value="simple">Ligne simple sans flèche</option></select><button class="button danger block" id="delete-edge-button">Supprimer la connexion</button></div>
         <div id="cluster-inspector" hidden><div class="connection-header">▧ <strong>Cluster sélectionné</strong></div><label class="field-label" for="cluster-title-input">Nom du cluster</label><input id="cluster-title-input" class="field" maxlength="60"><button class="button danger block" id="delete-cluster-button">Supprimer le cluster</button></div>
-        <div class="sidebar-footer"><div class="footer-kbd">⌨</div><div><strong>Raccourcis clavier</strong><p>Suppr : effacer · Ctrl+Z : annuler · Molette : zoom · Espace : déplacer</p></div></div>
+        <div class="sidebar-footer"><div class="footer-kbd">⌨</div><div><strong>Raccourcis clavier</strong><p>Ctrl/Cmd+C / X / V : copier / couper / coller · Suppr : effacer · Ctrl+Z : annuler · Molette : zoom · Espace : déplacer</p></div></div>
       </aside>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
