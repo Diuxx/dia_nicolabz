@@ -1,5 +1,6 @@
 /* ArchCanvas v2 - couche de personnalisation, sans casser les styles du POC. */
 .connections{left:-3200px;top:-2400px;right:auto;bottom:auto;width:6400px;height:4800px}
+.alignment-guide{stroke:#d839a8;stroke-width:1.5;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;pointer-events:none}
 .architecture-cluster{pointer-events:visiblePainted}
 .cluster-port{fill:#9182e8;stroke:#fff;stroke-width:3;cursor:crosshair;pointer-events:all}
 .cluster-port:hover,.cluster-port.pending{fill:#5f4bd6}
@@ -50,5 +51,6 @@
 .sync-choices button{cursor:pointer;padding:12px;border-radius:9px;border:1px solid #b5c6d5;background:#eff7f3;color:#365b4b;font-size:12px;font-weight:800}
 .sync-choices button:hover{background:#daece2}
 .sync-choices button.cancel{background:#fff;color:#65758a}
+.sync-choices form button{width:100%}
 @media(max-width:1050px){.profile-trigger{min-width:auto}.profile-label,.profile-chevron{display:none}.brand{min-width:auto}.top-actions{gap:2px}}
 @media(max-width:720px){.top-actions .button{font-size:10px}.profile-trigger{padding:5px}.profile-menu{right:0}}

@@ -7,6 +7,8 @@ import { clusterBounds } from './core/cluster-geometry.js';
 import { createPastedItems } from './core/clipboard.js';
 import { CLUSTER_MIN_SIZE, NODE_MIN_SIZE, resizeFromBottomRight } from './core/resize.js';
 import { keyboardMoveDelta } from './core/keyboard-move.js';
+import { alignMovingNodes } from './core/alignment-guides.js';
+import { exportBackgroundSvg } from './core/export-background.js';
 
 /* ArchCanvas — dependency-free browser whiteboard. No external network calls. */
 (() => {
@@ -32,7 +34,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
 
   const ui = {
     board: $('board'), world: $('world'), nodes: $('node-layer'), clusters: $('cluster-layer'), clusterPorts: $('cluster-port-layer'), edges: $('edge-layer'),
-    preview: $('preview-layer'), palette: $('palette'), name: $('project-name'),
+    preview: $('preview-layer'), guides: $('alignment-guide-layer'), palette: $('palette'), name: $('project-name'),
     search: $('icon-search'), inspectorEmpty: $('inspector-empty'),
     nodeInspector: $('node-inspector'), edgeInspector: $('edge-inspector'),
     toast: $('toast')
@@ -422,6 +424,18 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     return element;
   }
 
+  function renderAlignmentGuides(guides = []) {
+    ui.guides.replaceChildren();
+    for (const guide of guides) {
+      const vertical = guide.axis === 'x';
+      ui.guides.appendChild(svgElement('line', {
+        x1: vertical ? guide.coordinate : guide.start, y1: vertical ? guide.start : guide.coordinate,
+        x2: vertical ? guide.coordinate : guide.end, y2: vertical ? guide.end : guide.coordinate,
+        class: 'alignment-guide'
+      }));
+    }
+  }
+
   function renderEdges() {
     ui.edges.replaceChildren();
     for (const edge of project.edges) {
@@ -620,6 +634,13 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     redraw();
   }
 
+  function cancelMove() {
+    if (interaction?.kind !== 'move') return;
+    project = interaction.before;
+    interaction = null;
+    redraw();
+  }
+
   function onNodePointerDown(event) {
     if (event.button !== 0) return;
     if (mode === 'cluster' && !isSpaceDown) return;
@@ -699,11 +720,16 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
       const boundedDelta = clampGroupDelta(interaction.nodes, Math.round(dx), Math.round(dy), CANVAS_W, CANVAS_H, NODE_W, NODE_H, CANVAS_MIN_X, CANVAS_MIN_Y);
+      const otherNodes = project.nodes.filter((node) => !selectedNodeIds.has(node.id));
+      const alignment = interaction.moved && !event.altKey
+        ? alignMovingNodes(interaction.nodes, otherNodes, boundedDelta, 6 / view.zoom, CANVAS_LIMITS, { width: NODE_W, height: NODE_H })
+        : { delta: boundedDelta, guides: [] };
+      renderAlignmentGuides(alignment.guides);
       for (const position of interaction.nodes) {
         const node = project.nodes.find((item) => item.id === position.id);
         if (!node) continue;
-        node.x = position.x + boundedDelta.x;
-        node.y = position.y + boundedDelta.y;
+        node.x = position.x + alignment.delta.x;
+        node.y = position.y + alignment.delta.y;
         const element = [...ui.nodes.children].find((item) => item.dataset.nodeId === node.id);
         if (element) { element.style.left = `${node.x}px`; element.style.top = `${node.y}px`; }
       }
@@ -718,6 +744,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     if (!interaction) return;
     const last = interaction;
     interaction = null;
+    renderAlignmentGuides();
     if (last.kind === 'resize') {
       const item = resolveConnectionEndpoint(project, last.id, last.targetKind);
       if (item && (item.width !== last.width || item.height !== last.height)) {
@@ -927,7 +954,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     showToast('Projet JSON exporté.');
   }
 
-  function createExportSvg() {
+  function createExportSvg(background) {
     if (!project.nodes.length && !project.clusters.length) throw new Error('Ajoutez au moins un composant ou un cluster avant d’exporter.');
     const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x)) - 64;
     const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y)) - 75;
@@ -937,7 +964,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     const h = maxY - minY;
     const fragments = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
       '<defs><marker id="export-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1 7 4 1 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker><marker id="export-arrow-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7 1 1 4 7 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker></defs>',
-      `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`];
+      exportBackgroundSvg(background, { x: minX, y: minY, width: w, height: h })];
     for (const cluster of project.clusters) {
       fragments.push(`<rect x="${cluster.x}" y="${cluster.y}" width="${cluster.width}" height="${cluster.height}" rx="12" fill="none" stroke="#7183a0" stroke-width="2" stroke-dasharray="8 6"/>`);
       fragments.push(`<text x="${cluster.x + 12}" y="${cluster.y + 22}" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#596a86">${escapeXml(cluster.title)}</text>`);
@@ -978,10 +1005,10 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     return { content: fragments.join(''), width: w, height: h };
   }
 
-  async function exportPng() {
+  async function exportPng(background) {
     try {
       ui.board.classList.add('exporting-png');
-      const exportData = createExportSvg();
+      const exportData = createExportSvg(background);
       const blob = new Blob([exportData.content], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       try {
@@ -1217,7 +1244,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     });
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', () => { cancelResize(); interaction = null; });
+    window.addEventListener('pointercancel', () => { cancelResize(); cancelMove(); interaction = null; renderAlignmentGuides(); });
     ui.board.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; });
     ui.board.addEventListener('drop', (event) => {
       event.preventDefault();
@@ -1303,7 +1330,13 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
       showToast('Nouveau tableau créé.');
     });
     $('export-json-button').addEventListener('click', exportJson);
-    $('export-png-button').addEventListener('click', exportPng);
+    $('export-png-button').addEventListener('click', () => $('export-png-dialog').showModal());
+    $('export-png-dialog').addEventListener('click', (event) => {
+      const background = event.target.closest('button[data-background]')?.dataset.background;
+      if (!background) return;
+      $('export-png-dialog').close();
+      exportPng(background);
+    });
     $('open-button').addEventListener('click', () => $('project-file').click());
     $('project-file').addEventListener('change', async (event) => {
       const file = event.target.files[0];
@@ -1332,6 +1365,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
       await addCustomSvgFiles(files);
     });
     window.addEventListener('keydown', (event) => {
+      if ($('export-png-dialog').open) return;
       const active = document.activeElement;
       const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) || active?.isContentEditable;
       if (editing && event.key === 'Enter' && !event.isComposing && event.keyCode !== 229 &&
@@ -1347,7 +1381,9 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
         pendingSourceId = null;
         pendingSourcePort = null;
         cancelResize();
+        cancelMove();
         interaction = null;
+        renderAlignmentGuides();
         updatePreview();
         renderNodes();
         renderClusters();
@@ -1379,7 +1415,7 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
     window.addEventListener('keyup', (event) => {
       if (event.key === ' ') { isSpaceDown = false; ui.board.classList.toggle('mode-pan', mode === 'pan'); }
     });
-    window.addEventListener('blur', () => { isSpaceDown = false; cancelResize(); interaction = null; });
+    window.addEventListener('blur', () => { isSpaceDown = false; cancelResize(); cancelMove(); interaction = null; renderAlignmentGuides(); });
     window.addEventListener('resize', applyView);
   }
 

@@ -45,7 +45,7 @@ title: ArchCanvas — Architecture whiteboard
             <svg class="connections" id="connections" xmlns="http://www.w3.org/2000/svg" viewBox="-3200 -2400 6400 4800" aria-label="Connexions entre les composants">
               <g id="cluster-layer" class="cluster-layer" aria-label="Clusters"></g>
               <defs><marker id="arrow-marker" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 7 4 1 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="arrow-marker-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M7 1 1 4 7 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-              <g id="edge-layer"></g><g id="preview-layer"></g><g id="cluster-port-layer"></g>
+              <g id="edge-layer"></g><g id="preview-layer"></g><g id="alignment-guide-layer" aria-hidden="true"></g><g id="cluster-port-layer"></g>
             </svg>
             <div class="node-layer" id="node-layer"></div>
           </div>
@@ -88,6 +88,15 @@ title: ArchCanvas — Architecture whiteboard
   </div>
 
   <div class="context-menu" id="context-menu" role="menu" aria-label="Actions contextuelles" hidden></div>
+  <dialog id="export-png-dialog" class="sync-dialog" aria-labelledby="export-png-dialog-title">
+    <h2 id="export-png-dialog-title">Exporter une image PNG</h2>
+    <p>Choisissez le fond de votre image.</p>
+    <div class="sync-choices">
+      <button type="button" data-background="white">Fond blanc</button>
+      <button type="button" data-background="dotted">Fond pointillé</button>
+      <form method="dialog"><button type="submit" class="cancel">Annuler</button></form>
+    </div>
+  </dialog>
   <dialog id="sync-dialog" class="sync-dialog" aria-labelledby="sync-dialog-title">
     <h2 id="sync-dialog-title">Synchronisation Google Drive</h2>
     <p id="sync-dialog-message"></p>
