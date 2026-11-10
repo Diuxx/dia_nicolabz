@@ -32,7 +32,7 @@ title: ArchCanvas — Architecture whiteboard
 
     <div class="app-main">
       <aside class="sidebar left-sidebar" aria-label="Bibliothèque de composants">
-        <div class="panel-heading"><div><p class="eyebrow">BIBLIOTHÈQUE</p><h2>Composants <span class="icon-count" id="icon-count">54</span></h2></div></div>
+        <div class="panel-heading"><div><p class="eyebrow">BIBLIOTHÈQUE</p><h2>Composants <span class="icon-count" id="icon-count">55</span></h2></div></div>
         <div class="search-wrap"><svg viewBox="0 0 24 24" width="17" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="icon-search" placeholder="Rechercher une icône…" aria-label="Rechercher une icône"></div>
         <div id="palette" class="palette" aria-label="Faites glisser une icône vers le tableau"></div>
         <div class="import-icons-block"><div class="custom-header"><span class="small-bullet">✦</span><strong>Vos propres SVG</strong></div><p>Importez les icônes IconScout que vous avez téléchargées.</p><button type="button" id="import-icons-button" class="button import-asset">+ Ajouter des SVG</button><a href="https://iconscout.com/icon-pack/servers-database-icon-pack_16213" target="_blank" rel="noopener noreferrer">Voir les packs IconScout ↗</a></div>
@@ -70,7 +70,7 @@ title: ArchCanvas — Architecture whiteboard
         <div id="node-inspector" hidden>
           <div class="selected-preview"><div id="selected-icon"></div><div><span class="eyebrow">COMPOSANT</span><h3 id="selected-type"></h3></div></div>
           <label class="field-label" for="node-title">Nom du composant</label><input id="node-title" class="field" type="text" maxlength="60">
-          <label class="field-label" for="node-description">Description / technologie</label><textarea id="node-description" class="field textarea" rows="3" maxlength="180"></textarea>
+          <label class="field-label" for="node-description">Description / technologie</label><textarea id="node-description" class="field textarea" rows="3" maxlength="180" aria-describedby="description-help"></textarea><small id="description-help" class="field-help">Entrée : valider · Maj+Entrée : nouvelle ligne</small>
           <div class="size-fields"><div><label class="field-label" for="node-width">Largeur</label><input id="node-width" class="field" type="number" min="120" step="1"></div><div><label class="field-label" for="node-height">Hauteur</label><input id="node-height" class="field" type="number" min="141" step="1"></div></div>
           <button type="button" class="button secondary reset-size" id="reset-node-size">Rétablir la taille par défaut</button>
           <label class="field-label" for="node-color">Couleur de la carte</label><div class="color-choices" id="color-choices"></div>

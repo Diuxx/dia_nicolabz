@@ -1332,7 +1332,15 @@ import { keyboardMoveDelta } from './core/keyboard-move.js';
       await addCustomSvgFiles(files);
     });
     window.addEventListener('keydown', (event) => {
-      const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+      const active = document.activeElement;
+      const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName) || active?.isContentEditable;
+      if (editing && event.key === 'Enter' && !event.isComposing && event.keyCode !== 229 &&
+          !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey &&
+          (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && ['text', 'search', 'number'].includes(active.type)))) {
+        event.preventDefault();
+        active.blur();
+        return;
+      }
       if (editing) return;
       if (event.key === 'Escape') {
         contextMenu.close();

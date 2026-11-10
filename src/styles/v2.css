@@ -7,6 +7,7 @@
 .right-sidebar>#cluster-inspector{padding:20px;overflow-y:auto;flex:1}
 .size-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
 .size-fields>div{min-width:0}
+.field-help{display:block;margin-top:5px;color:#65728a;font-size:10px}
 .reset-size{width:100%;margin-top:10px}
 .port-right,.port-left{top:calc(50% - 8px)}
 .node-name,.node-subtitle{max-width:100%}
