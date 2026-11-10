@@ -7,6 +7,8 @@ test('les styles de liaison configurent flèches et pointillés', () => {
   assert.deepEqual(edgeLineSvgAttributes('arrow-left', 'arrow'), { 'marker-start': 'url(#arrow-start)' });
   assert.deepEqual(edgeLineSvgAttributes('arrow-both', 'arrow'), { 'marker-start': 'url(#arrow-start)', 'marker-end': 'url(#arrow)' });
   assert.deepEqual(edgeLineSvgAttributes('dotted', 'arrow'), { 'stroke-dasharray': '3 6' });
+  assert.equal(normalizeEdgeLineType('simple'), 'simple');
+  assert.deepEqual(edgeLineSvgAttributes('simple', 'arrow'), {});
 });
 
 test('les types inconnus utilisent le style avec flèche vers la droite', () => {

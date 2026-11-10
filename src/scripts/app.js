@@ -13,6 +13,9 @@ import { clusterBounds } from './core/cluster-geometry.js';
   const NODE_H = 141;
   const CANVAS_W = 3200;
   const CANVAS_H = 2400;
+  const CANVAS_MIN_X = -CANVAS_W;
+  const CANVAS_MIN_Y = -CANVAS_H;
+  const CANVAS_LIMITS = { minX: CANVAS_MIN_X, minY: CANVAS_MIN_Y, maxX: CANVAS_W, maxY: CANVAS_H };
   const STORAGE_KEY = 'archcanvas-v2-project';
   const LEGACY_STORAGE_KEY = 'archcanvas-poc-v1';
   const COLORS = ['#f1f3ff', '#e8f8ff', '#effbea', '#fff3df', '#fff0f4', '#f4edff'];
@@ -107,11 +110,11 @@ import { clusterBounds } from './core/cluster-geometry.js';
     });
     const clusterIds = new Set();
     const clusters = (data.clusters || []).map((cluster) => {
-      if (typeof cluster.id !== 'string' || !/^[\\w-]{1,90}$/.test(cluster.id) || clusterIds.has(cluster.id) ||
+      if (typeof cluster.id !== 'string' || !/^[\w-]{1,90}$/.test(cluster.id) || clusterIds.has(cluster.id) ||
           !Number.isFinite(cluster.x) || !Number.isFinite(cluster.y) ||
           !Number.isFinite(cluster.width) || !Number.isFinite(cluster.height) ||
           cluster.width < 80 || cluster.height < 80 || Math.abs(cluster.x) > 5000 || Math.abs(cluster.y) > 5000 ||
-          cluster.width > CANVAS_W || cluster.height > CANVAS_H) {
+          cluster.width > CANVAS_W - CANVAS_MIN_X || cluster.height > CANVAS_H - CANVAS_MIN_Y) {
         throw new Error('Un cluster du projet est invalide.');
       }
       if (cluster.x + cluster.width > CANVAS_W || cluster.y + cluster.height > CANVAS_H ||
@@ -489,8 +492,8 @@ import { clusterBounds } from './core/cluster-geometry.js';
   function positionForNewNode() {
     const rect = ui.board.getBoundingClientRect();
     const center = pointToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    return { x: clamp(Math.round(center.x - NODE_W / 2), 0, CANVAS_W - NODE_W),
-      y: clamp(Math.round(center.y - NODE_H / 2), 0, CANVAS_H - NODE_H) };
+    return { x: clamp(Math.round(center.x - NODE_W / 2), CANVAS_MIN_X, CANVAS_W - NODE_W),
+      y: clamp(Math.round(center.y - NODE_H / 2), CANVAS_MIN_Y, CANVAS_H - NODE_H) };
   }
 
   function addNode(iconId, coords) {
@@ -499,7 +502,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     if (!icon && iconId !== 'note') return;
     const pos = coords || positionForNewNode();
     const node = { id: uid(), iconId, title: icon?.name || 'Note', description: iconId === 'note' ? 'Ajoutez une annotation ici.' : '',
-      x: clamp(pos.x, 0, CANVAS_W - NODE_W), y: clamp(pos.y, 0, CANVAS_H - NODE_H), color: iconId === 'note' ? COLORS[3] : COLORS[0] };
+      x: clamp(pos.x, CANVAS_MIN_X, CANVAS_W - NODE_W), y: clamp(pos.y, CANVAS_MIN_Y, CANVAS_H - NODE_H), color: iconId === 'note' ? COLORS[3] : COLORS[0] };
     changeProject(() => project.nodes.push(node));
     select({ kind: 'node', id: node.id });
     showToast('Composant ajouté.');
@@ -581,7 +584,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     } else if (interaction.kind === 'draw-cluster') {
       const end = pointToWorld(event.clientX, event.clientY);
       if (Math.hypot(end.x - interaction.start.x, end.y - interaction.start.y) > 12) interaction.moved = true;
-      const bounds = clusterBounds(interaction.start, end);
+      const bounds = clusterBounds(interaction.start, end, 80, CANVAS_LIMITS);
       interaction.cluster = { id: 'cluster-preview', title: 'Nouveau cluster', ...bounds };
       renderClusters();
     } else if (interaction.kind === 'move-cluster') {
@@ -590,8 +593,8 @@ import { clusterBounds } from './core/cluster-geometry.js';
       const dx = (event.clientX - interaction.startClientX) / view.zoom;
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
-      cluster.x = clamp(Math.round(interaction.x + dx), 0, CANVAS_W - cluster.width);
-      cluster.y = clamp(Math.round(interaction.y + dy), 0, CANVAS_H - cluster.height);
+      cluster.x = clamp(Math.round(interaction.x + dx), CANVAS_MIN_X, CANVAS_W - cluster.width);
+      cluster.y = clamp(Math.round(interaction.y + dy), CANVAS_MIN_Y, CANVAS_H - cluster.height);
       const element = [...ui.clusters.children].find((item) => item.dataset.clusterId === cluster.id);
       if (element) {
         const outline = element.querySelector('.cluster-outline');
@@ -605,7 +608,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       const dx = (event.clientX - interaction.startClientX) / view.zoom;
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
-      const boundedDelta = clampGroupDelta(interaction.nodes, Math.round(dx), Math.round(dy), CANVAS_W, CANVAS_H, NODE_W, NODE_H);
+      const boundedDelta = clampGroupDelta(interaction.nodes, Math.round(dx), Math.round(dy), CANVAS_W, CANVAS_H, NODE_W, NODE_H, CANVAS_MIN_X, CANVAS_MIN_Y);
       for (const position of interaction.nodes) {
         const node = project.nodes.find((item) => item.id === position.id);
         if (!node) continue;
@@ -626,7 +629,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const last = interaction;
     interaction = null;
     if (last.kind === 'draw-cluster') {
-      const bounds = clusterBounds(last.start, pointToWorld(event.clientX, event.clientY));
+      const bounds = clusterBounds(last.start, pointToWorld(event.clientX, event.clientY), 80, CANVAS_LIMITS);
       if (last.moved && bounds.width >= 80 && bounds.height >= 80) {
         const cluster = { id: uid(), title: 'Nouveau cluster', ...bounds };
         recordChange(last.before);
@@ -682,12 +685,12 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const rect = ui.board.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
     if (!project.nodes.length && !project.clusters.length) {
-      view = { x: 70, y: 80, zoom: 1 };
+      view = { x: rect.width / 2, y: rect.height / 2, zoom: 1 };
     } else {
-      const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x), 0);
-      const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y), 0);
-      const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width), 0);
-      const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height), 0);
+      const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x));
+      const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y));
+      const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width));
+      const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height));
       const contentWidth = maxX - minX;
       const contentHeight = maxY - minY;
       const zoom = clamp(Math.min((rect.width - 105) / contentWidth, (rect.height - 130) / contentHeight), .3, 1.15);
@@ -721,7 +724,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
     const node = project.nodes.find((item) => item.id === selection?.id && selection?.kind === 'node');
     if (!node) return;
     const copy = { ...deepCopy(node), id: uid(), title: `${node.title} copie`.slice(0, 60),
-      x: clamp(node.x + 35, 0, CANVAS_W - NODE_W), y: clamp(node.y + 40, 0, CANVAS_H - NODE_H) };
+      x: clamp(node.x + 35, CANVAS_MIN_X, CANVAS_W - NODE_W), y: clamp(node.y + 40, CANVAS_MIN_Y, CANVAS_H - NODE_H) };
     changeProject(() => project.nodes.push(copy));
     select({ kind: 'node', id: copy.id });
   }
@@ -748,10 +751,10 @@ import { clusterBounds } from './core/cluster-geometry.js';
 
   function createExportSvg() {
     if (!project.nodes.length && !project.clusters.length) throw new Error('Ajoutez au moins un composant ou un cluster avant d’exporter.');
-    const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x), 0) - 64;
-    const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y), 0) - 75;
-    const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width), 0) + 64;
-    const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height), 0) + 70;
+    const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x)) - 64;
+    const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y)) - 75;
+    const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width)) + 64;
+    const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height)) + 70;
     const w = maxX - minX;
     const h = maxY - minY;
     const fragments = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
@@ -1012,7 +1015,7 @@ import { clusterBounds } from './core/cluster-geometry.js';
       if (mode === 'cluster' && !isSpaceDown) {
           const start = pointToWorld(event.clientX, event.clientY);
           interaction = { kind: 'draw-cluster', start, before: deepCopy(project),
-            cluster: { id: 'cluster-preview', title: 'Nouveau cluster', ...clusterBounds(start, start) } };
+            cluster: { id: 'cluster-preview', title: 'Nouveau cluster', ...clusterBounds(start, start, 80, CANVAS_LIMITS) } };
           renderClusters();
           return;
         }

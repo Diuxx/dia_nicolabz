@@ -1,4 +1,7 @@
 /* ArchCanvas v2 - couche de personnalisation, sans casser les styles du POC. */
+.connections{left:-3200px;top:-2400px;right:auto;bottom:auto;width:6400px;height:4800px}
+.architecture-cluster{pointer-events:visiblePainted}
+.right-sidebar>#cluster-inspector{padding:20px;overflow-y:auto;flex:1}
 .topbar{gap:12px}
 .top-actions{margin-left:auto}
 .profile-wrapper{position:relative;flex:none;z-index:15}

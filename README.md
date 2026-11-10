@@ -6,6 +6,8 @@
 
 - 54 pictogrammes SVG originaux : 18 généralistes + 36 cloud (conteneurs, Docker/Podman/Kubernetes, serverless, fonctions, événements, réseaux, stockage, CI/CD).
 - Drag & drop sur le tableau, sélection multiple de composants avec Ctrl/Cmd ou Maj + clic puis déplacement groupé, clusters rectangulaires transparents au contour pointillé (outil G), dessinés par glisser sur le tableau, déplaçables et renommables, exportés en JSON/PNG et placés derrière cartes et connexions. Connexions depuis quatre points d’accroche avec styles configurables, possibilité de masquer les points d’accroche et export PNG sans ces points, zoom et déplacement du canevas.
+- L’origine est au centre du canevas : cartes et clusters peuvent être placés à gauche et au-dessus, avec des coordonnées négatives conservées dans le JSON. Les projets existants gardent leurs coordonnées.
+- Le style d’une liaison peut être une ligne continue sans flèche, une ligne pointillée ou une ligne avec flèche à une ou aux deux extrémités ; ce choix est conservé dans le JSON et l’export PNG.
 - Clic droit **sur un composant** : renommer, dupliquer, commencer une connexion, changer la couleur, supprimer.
 - Clic droit **sur une connexion** : modifier le libellé, inverser le sens, supprimer.
 - Clic droit **sur le tableau** : ajouter une note, une fonction, un conteneur, ajuster la vue, exporter JSON.

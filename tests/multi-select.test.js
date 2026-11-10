@@ -15,3 +15,9 @@ test('un groupe plus grand que le canevas est déplacé sans disloquer ses nœud
   const group = [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 600, y: 450 }];
   assert.deepEqual(clampGroupDelta(group, -20, 20, 500, 400, 100, 80), { x: 0, y: 0 });
 });
+
+test('un groupe peut franchir l’origine et reste borné aux limites négatives', () => {
+  const group = [{ x: 20, y: 30 }, { x: 180, y: 130 }];
+  assert.deepEqual(clampGroupDelta(group, -100, -100, 3200, 2400, 158, 141, -3200, -2400), { x: -100, y: -100 });
+  assert.deepEqual(clampGroupDelta(group, -4000, -4000, 3200, 2400, 158, 141, -3200, -2400), { x: -3220, y: -2430 });
+});
