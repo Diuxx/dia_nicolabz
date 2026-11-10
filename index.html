@@ -43,9 +43,11 @@ title: ArchCanvas — Architecture whiteboard
         <div class="board" id="board" tabindex="0" aria-label="Tableau interactif. Déplacer les composants et relier leurs ports.">
           <div class="board-world" id="world">
             <svg class="connections" id="connections" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3200 2400" aria-label="Connexions entre les composants">
+              <g id="cluster-layer" class="cluster-layer" aria-label="Clusters"></g>
               <defs><marker id="arrow-marker" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 7 4 1 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="arrow-marker-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M7 1 1 4 7 7" fill="none" stroke="#7a88a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
               <g id="edge-layer"></g><g id="preview-layer"></g>
             </svg>
+            <div class="cluster-layer" id="cluster-layer" aria-label="Clusters"></div>
             <div class="node-layer" id="node-layer"></div>
           </div>
           <div class="board-placeholder" id="board-placeholder" hidden><div class="placeholder-icon">◇</div><h2>Votre architecture commence ici</h2><p>Glissez un composant de la bibliothèque ou cliquez dessus pour l’ajouter.</p></div>
@@ -55,10 +57,11 @@ title: ArchCanvas — Architecture whiteboard
             <span class="tool-divider"></span>
             <button id="add-note-button" class="tool" title="Ajouter une note" aria-label="Ajouter une note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12l-4 4H4zM16 20v-4h4M8 9h8M8 13h6"/></svg></button>
             <button id="fit-button" class="tool" title="Centrer tous les composants" aria-label="Ajuster à l'écran"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 8l-5-5m13 5 5-5M8 16l-5 5m13-5-5 5"/></svg></button>
+            <button id="cluster-mode" class="tool" title="Dessiner un cluster (G)" aria-label="Dessiner un cluster" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke-dasharray="3 2"/><path d="M8 9h8"/></svg></button>
             <button id="ports-toggle" class="tool active" type="button" aria-pressed="true" title="Masquer les points de connexion" aria-label="Masquer les points de connexion"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 12h8M12 6v12"/></svg></button>
           </div>
           <div class="zoom-controls" aria-label="Zoom du tableau"><button type="button" id="zoom-out" aria-label="Dézoomer">−</button><span id="zoom-value">100%</span><button type="button" id="zoom-in" aria-label="Zoomer">+</button></div>
-          <div class="canvas-hint" id="canvas-hint"><span class="hint-symbol">✧</span> Ctrl/Cmd + clic pour sélectionner plusieurs composants · Glisser pour déplacer · Connecter depuis les points haut, droite, bas ou gauche</div>
+          <div class="canvas-hint" id="canvas-hint"><span class="hint-symbol">✧</span> Ctrl/Cmd + clic pour sélectionner plusieurs composants · Glisser pour déplacer · Connecter avec les points d’accroche · G puis glisser pour dessiner un cluster pointillé</div>
         </div>
       </main>
 
@@ -74,6 +77,7 @@ title: ArchCanvas — Architecture whiteboard
           <div class="inspector-tip"><strong>Connexions</strong><p>Cliquez sur un point d’accroche en haut, à droite, en bas ou à gauche d’un composant, puis sur un point d’un autre composant. Vous pouvez aussi glisser d’un point à l’autre.</p></div>
         </div>
         <div id="edge-inspector" hidden><div class="connection-header">↗ <strong>Connexion sélectionnée</strong></div><label class="field-label" for="edge-label">Libellé (ex. HTTPS, SQL)</label><input id="edge-label" class="field" maxlength="50" placeholder="HTTPS : 443"><label class="field-label" for="edge-line-type">Style de liaison</label><select id="edge-line-type" class="field"><option value="arrow-right">Flèche vers la droite</option><option value="arrow-left">Flèche vers la gauche</option><option value="arrow-both">Flèches aux deux extrémités</option><option value="dotted">Pointillés sans flèche</option></select><button class="button danger block" id="delete-edge-button">Supprimer la connexion</button></div>
+        <div id="cluster-inspector" hidden><div class="connection-header">▧ <strong>Cluster sélectionné</strong></div><label class="field-label" for="cluster-title-input">Nom du cluster</label><input id="cluster-title-input" class="field" maxlength="60"><button class="button danger block" id="delete-cluster-button">Supprimer le cluster</button></div>
         <div class="sidebar-footer"><div class="footer-kbd">⌨</div><div><strong>Raccourcis clavier</strong><p>Suppr : effacer · Ctrl+Z : annuler · Molette : zoom · Espace : déplacer</p></div></div>
       </aside>
     </div>

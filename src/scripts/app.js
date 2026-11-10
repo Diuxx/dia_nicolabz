@@ -3,6 +3,7 @@ import { createContextMenu } from './ui/context-menu.js';
 import { clampGroupDelta } from './core/multi-select.js';
 import { connectionPortNormal, connectionPortPoint, inferConnectionPorts } from './core/connection-ports.js';
 import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.js';
+import { clusterBounds } from './core/cluster-geometry.js';
 
 /* ArchCanvas — dependency-free browser whiteboard. No external network calls. */
 (() => {
@@ -24,7 +25,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   const deepCopy = (data) => JSON.parse(JSON.stringify(data));
 
   const ui = {
-    board: $('board'), world: $('world'), nodes: $('node-layer'), edges: $('edge-layer'),
+    board: $('board'), world: $('world'), nodes: $('node-layer'), clusters: $('cluster-layer'), edges: $('edge-layer'),
     preview: $('preview-layer'), palette: $('palette'), name: $('project-name'),
     search: $('icon-search'), inspectorEmpty: $('inspector-empty'),
     nodeInspector: $('node-inspector'), edgeInspector: $('edge-inspector'),
@@ -35,6 +36,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     version: 1,
     name: 'Architecture de démonstration',
     customIcons: [],
+    clusters: [],
     nodes: [
       { id: 'client', iconId: 'browser', title: 'Application web', description: 'Frontend / HTTPS', x: 70, y: 245, color: COLORS[1] },
       { id: 'proxy', iconId: 'gateway', title: 'Reverse proxy', description: 'Nginx · TLS', x: 310, y: 245, color: COLORS[5] },
@@ -103,6 +105,24 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
         description: String(node.description || '').slice(0, 180), x: node.x, y: node.y,
         color: COLORS.includes(node.color) ? node.color : COLORS[0] };
     });
+    const clusterIds = new Set();
+    const clusters = (data.clusters || []).map((cluster) => {
+      if (typeof cluster.id !== 'string' || !/^[\\w-]{1,90}$/.test(cluster.id) || clusterIds.has(cluster.id) ||
+          !Number.isFinite(cluster.x) || !Number.isFinite(cluster.y) ||
+          !Number.isFinite(cluster.width) || !Number.isFinite(cluster.height) ||
+          cluster.width < 80 || cluster.height < 80 || Math.abs(cluster.x) > 5000 || Math.abs(cluster.y) > 5000 ||
+          cluster.width > CANVAS_W || cluster.height > CANVAS_H) {
+        throw new Error('Un cluster du projet est invalide.');
+      }
+      if (cluster.x + cluster.width > CANVAS_W || cluster.y + cluster.height > CANVAS_H ||
+          typeof cluster.title !== 'string' || cluster.title.length > 60) {
+        throw new Error('Un cluster du projet est invalide.');
+      }
+      clusterIds.add(cluster.id);
+      return { id: cluster.id, title: String(cluster.title || 'Cluster').slice(0, 60),
+        x: cluster.x, y: cluster.y, width: cluster.width, height: cluster.height };
+    });
+    if (clusters.length > 100) throw new Error('Le fichier dépasse la limite de clusters du POC.');
     const edgeIds = new Set();
     const validPorts = new Set(['top', 'right', 'bottom', 'left']);
     const edges = data.edges.map((edge) => {
@@ -119,7 +139,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
         fromPort: edge.fromPort || inferredPorts.fromPort, toPort: edge.toPort || inferredPorts.toPort,
         lineType: normalizeEdgeLineType(edge.lineType) };
     });
-    return { version: 1, name: String(data.name || 'Nouveau schéma').slice(0, 70), customIcons, nodes, edges };
+    return { version: 1, name: String(data.name || 'Nouveau schéma').slice(0, 70), customIcons, clusters, nodes, edges };
   }
 
   function iconFor(id) {
@@ -252,6 +272,30 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     $('zoom-value').textContent = `${Math.round(view.zoom * 100)}%`;
   }
 
+  function renderClusters() {
+    ui.clusters.replaceChildren();
+    const clusters = interaction?.kind === 'draw-cluster'
+      ? [...project.clusters, interaction.cluster]
+      : project.clusters;
+    for (const cluster of clusters) {
+      const group = svgElement('g', { class: `architecture-cluster${selection?.kind === 'cluster' && selection.id === cluster.id ? ' selected' : ''}`, 'data-cluster-id': cluster.id });
+      group.appendChild(svgElement('rect', { x: cluster.x, y: cluster.y, width: cluster.width, height: cluster.height, rx: 12, class: 'cluster-outline', fill: 'none' }));
+      const label = svgElement('text', { x: cluster.x + 12, y: cluster.y + 22, class: 'cluster-title' });
+      label.textContent = cluster.title;
+      group.appendChild(label);
+      group.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || mode === 'cluster') return;
+        event.stopPropagation();
+        if (mode !== 'select') return;
+        event.preventDefault();
+        select({ kind: 'cluster', id: cluster.id });
+        interaction = { kind: 'move-cluster', id: cluster.id, x: cluster.x, y: cluster.y,
+          startClientX: event.clientX, startClientY: event.clientY, before: deepCopy(project), moved: false };
+      });
+      ui.clusters.appendChild(group);
+    }
+  }
+
   function renderNodes() {
     ui.nodes.replaceChildren();
     for (const node of project.nodes) {
@@ -293,7 +337,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
       element.addEventListener('pointerdown', onNodePointerDown);
       ui.nodes.appendChild(element);
     }
-    $('board-placeholder').hidden = project.nodes.length > 0;
+    $('board-placeholder').hidden = project.nodes.length > 0 || project.clusters.length > 0;
     $('node-count').textContent = `${project.nodes.length} composant${project.nodes.length === 1 ? '' : 's'}`;
   }
 
@@ -372,16 +416,21 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   function renderInspector() {
     const node = selection?.kind === 'node' ? project.nodes.find((item) => item.id === selection.id) : null;
     const edge = selection?.kind === 'edge' ? project.edges.find((item) => item.id === selection.id) : null;
+    const cluster = selection?.kind === 'cluster' ? project.clusters.find((item) => item.id === selection.id) : null;
     const hasMultipleNodes = selectedNodeIds.size > 1;
-    ui.inspectorEmpty.hidden = Boolean(node || edge);
+    ui.inspectorEmpty.hidden = Boolean(node || edge || cluster);
     ui.nodeInspector.hidden = !node;
     ui.edgeInspector.hidden = !edge;
+    $('cluster-inspector').hidden = !cluster;
     if (hasMultipleNodes) {
       ui.inspectorEmpty.querySelector('strong').textContent = `${selectedNodeIds.size} composants sélectionnés`;
       ui.inspectorEmpty.querySelector('p').textContent = 'Faites glisser un composant sélectionné pour déplacer le groupe. Ctrl/Cmd + clic pour modifier la sélection.';
     } else {
       ui.inspectorEmpty.querySelector('strong').textContent = 'Aucun élément sélectionné';
       ui.inspectorEmpty.querySelector('p').textContent = 'Sélectionnez un composant ou une connexion sur le tableau pour le modifier.';
+    }
+    if (cluster) {
+      $('cluster-title-input').value = cluster.title;
     }
     if (node) {
       const icon = $('selected-icon');
@@ -415,6 +464,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   function redraw() {
     ui.name.value = project.name;
     renderPalette();
+    renderClusters();
     renderNodes();
     renderEdges();
     updatePreview();
@@ -425,6 +475,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   function select(value) {
     selection = value;
     selectedNodeIds = value?.kind === 'node' ? new Set([value.id]) : new Set();
+    renderClusters();
     renderNodes();
     renderEdges();
     renderInspector();
@@ -474,6 +525,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
 
   function onNodePointerDown(event) {
     if (event.button !== 0) return;
+    if (mode === 'cluster' && !isSpaceDown) return;
     const element = event.currentTarget;
     const nodeId = element.dataset.nodeId;
     const port = event.target.closest('.port');
@@ -526,6 +578,29 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
       view.x = interaction.x + event.clientX - interaction.startClientX;
       view.y = interaction.y + event.clientY - interaction.startClientY;
       applyView();
+    } else if (interaction.kind === 'draw-cluster') {
+      const end = pointToWorld(event.clientX, event.clientY);
+      if (Math.hypot(end.x - interaction.start.x, end.y - interaction.start.y) > 12) interaction.moved = true;
+      const bounds = clusterBounds(interaction.start, end);
+      interaction.cluster = { id: 'cluster-preview', title: 'Nouveau cluster', ...bounds };
+      renderClusters();
+    } else if (interaction.kind === 'move-cluster') {
+      const cluster = project.clusters.find((item) => item.id === interaction.id);
+      if (!cluster) return;
+      const dx = (event.clientX - interaction.startClientX) / view.zoom;
+      const dy = (event.clientY - interaction.startClientY) / view.zoom;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) interaction.moved = true;
+      cluster.x = clamp(Math.round(interaction.x + dx), 0, CANVAS_W - cluster.width);
+      cluster.y = clamp(Math.round(interaction.y + dy), 0, CANVAS_H - cluster.height);
+      const element = [...ui.clusters.children].find((item) => item.dataset.clusterId === cluster.id);
+      if (element) {
+        const outline = element.querySelector('.cluster-outline');
+        const label = element.querySelector('.cluster-title');
+        outline.setAttribute('x', cluster.x);
+        outline.setAttribute('y', cluster.y);
+        label.setAttribute('x', cluster.x + 12);
+        label.setAttribute('y', cluster.y + 22);
+      }
     } else if (interaction.kind === 'move') {
       const dx = (event.clientX - interaction.startClientX) / view.zoom;
       const dy = (event.clientY - interaction.startClientY) / view.zoom;
@@ -550,6 +625,26 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     if (!interaction) return;
     const last = interaction;
     interaction = null;
+    if (last.kind === 'draw-cluster') {
+      const bounds = clusterBounds(last.start, pointToWorld(event.clientX, event.clientY));
+      if (last.moved && bounds.width >= 80 && bounds.height >= 80) {
+        const cluster = { id: uid(), title: 'Nouveau cluster', ...bounds };
+        recordChange(last.before);
+        project.clusters.push(cluster);
+        select({ kind: 'cluster', id: cluster.id });
+        save();
+      } else {
+        renderClusters();
+        if (last.moved) showToast('Dessinez un rectangle plus grand pour créer un cluster.');
+      }
+    }
+    if (last.kind === 'move-cluster' && last.moved) {
+      const cluster = project.clusters.find((item) => item.id === last.id);
+      if (cluster && (cluster.x !== last.x || cluster.y !== last.y)) {
+        recordChange(last.before);
+        save();
+      }
+    }
     if (last.kind === 'move' && last.moved) {
       const hasMoved = last.nodes.some((position) => {
         const node = project.nodes.find((item) => item.id === position.id);
@@ -586,13 +681,13 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   function fitToContent() {
     const rect = ui.board.getBoundingClientRect();
     if (rect.width < 1 || rect.height < 1) return;
-    if (!project.nodes.length) {
+    if (!project.nodes.length && !project.clusters.length) {
       view = { x: 70, y: 80, zoom: 1 };
     } else {
-      const minX = Math.min(...project.nodes.map((node) => node.x));
-      const minY = Math.min(...project.nodes.map((node) => node.y));
-      const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W));
-      const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H));
+      const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x), 0);
+      const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y), 0);
+      const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width), 0);
+      const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height), 0);
       const contentWidth = maxX - minX;
       const contentHeight = maxY - minY;
       const zoom = clamp(Math.min((rect.width - 105) / contentWidth, (rect.height - 130) / contentHeight), .3, 1.15);
@@ -612,6 +707,8 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
       if (selected.kind === 'node') {
         project.nodes = project.nodes.filter((node) => !nodeIds.has(node.id));
         project.edges = project.edges.filter((edge) => !nodeIds.has(edge.from) && !nodeIds.has(edge.to));
+      } else if (selected.kind === 'cluster') {
+        project.clusters = project.clusters.filter((cluster) => cluster.id !== selected.id);
       } else {
         project.edges = project.edges.filter((edge) => edge.id !== selected.id);
       }
@@ -650,16 +747,20 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
   }
 
   function createExportSvg() {
-    if (!project.nodes.length) throw new Error('Ajoutez au moins un composant avant d’exporter.');
-    const minX = Math.min(...project.nodes.map((node) => node.x)) - 64;
-    const minY = Math.min(...project.nodes.map((node) => node.y)) - 75;
-    const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W)) + 64;
-    const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H)) + 70;
+    if (!project.nodes.length && !project.clusters.length) throw new Error('Ajoutez au moins un composant ou un cluster avant d’exporter.');
+    const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x), 0) - 64;
+    const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y), 0) - 75;
+    const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width), 0) + 64;
+    const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height), 0) + 70;
     const w = maxX - minX;
     const h = maxY - minY;
     const fragments = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
       '<defs><marker id="export-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M1 1 7 4 1 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker><marker id="export-arrow-start" markerWidth="8" markerHeight="8" refX="1" refY="4" orient="auto"><path d="M7 1 1 4 7 7" stroke="#8996ac" stroke-width="1.5" fill="none"/></marker></defs>',
       `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#ffffff"/>`];
+    for (const cluster of project.clusters) {
+      fragments.push(`<rect x="${cluster.x}" y="${cluster.y}" width="${cluster.width}" height="${cluster.height}" rx="12" fill="none" stroke="#7183a0" stroke-width="2" stroke-dasharray="8 6"/>`);
+      fragments.push(`<text x="${cluster.x + 12}" y="${cluster.y + 22}" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="#596a86">${escapeXml(cluster.title)}</text>`);
+    }
     for (const edge of project.edges) {
       const p = getEndpoints(edge);
       if (!p) continue;
@@ -787,7 +888,11 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     mode = next;
     $('select-mode').classList.toggle('active', mode === 'select');
     $('pan-mode').classList.toggle('active', mode === 'pan');
+    $('cluster-mode').classList.toggle('active', mode === 'cluster');
+    $('cluster-mode').setAttribute('aria-pressed', String(mode === 'cluster'));
     ui.board.classList.toggle('mode-pan', mode === 'pan');
+    ui.board.classList.toggle('mode-cluster', mode === 'cluster');
+    $('cluster-mode').title = mode === 'cluster' ? 'Annuler le dessin de cluster' : 'Dessiner un cluster (G)';
   }
 
   function replaceProjectFromDrive(data) {
@@ -836,6 +941,17 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     interaction = null;
     const nodeId = event.target.closest('[data-node-id]')?.dataset.nodeId;
     const edgeId = event.target.closest('[data-edge-id]')?.dataset.edgeId;
+    const clusterId = event.target.closest('[data-cluster-id]')?.dataset.clusterId;
+    if (clusterId) {
+      const cluster = project.clusters.find((item) => item.id === clusterId);
+      if (!cluster) return;
+      select({ kind: 'cluster', id: clusterId });
+      contextMenu.open({ x: event.clientX, y: event.clientY, heading: cluster.title, items: [
+        { label: '✎  Renommer', run: () => $('cluster-title-input').focus() },
+        { label: '✕  Supprimer', danger: true, run: deleteSelection }
+      ] });
+      return;
+    }
     if (nodeId) {
       const node = project.nodes.find((entry) => entry.id === nodeId);
       if (!node) return;
@@ -860,7 +976,6 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
       ] });
       return;
     }
-    select(null);
     const position = pointToWorld(event.clientX, event.clientY);
     const coords = { x: Math.round(position.x - NODE_W / 2), y: Math.round(position.y - NODE_H / 2) };
     contextMenu.open({ x: event.clientX, y: event.clientY, heading: 'Tableau blanc', items: [
@@ -888,13 +1003,20 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
       if (name !== project.name) changeProject(() => { project.name = name; });
     });
     ui.board.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0 || event.target.closest('.architecture-node') && !isSpaceDown && mode !== 'pan') return;
+      if (event.button !== 0 || event.target.closest('.architecture-node,.architecture-cluster') && !isSpaceDown && mode !== 'pan' && mode !== 'cluster') return;
       const inBoard = !event.target.closest('.board-toolbox,.zoom-controls');
       if (!inBoard) return;
-      const shouldPan = isSpaceDown || mode === 'pan' || event.target === ui.board || event.target === ui.world || event.target === ui.nodes || event.target.closest('.connections');
+      const shouldPan = mode === 'cluster' || isSpaceDown || mode === 'pan' || event.target === ui.board || event.target === ui.world || event.target === ui.nodes || event.target.closest('.connections');
       if (!shouldPan) return;
       event.preventDefault();
-      if (mode === 'select' && !isSpaceDown && !event.target.closest('.architecture-node')) {
+      if (mode === 'cluster' && !isSpaceDown) {
+          const start = pointToWorld(event.clientX, event.clientY);
+          interaction = { kind: 'draw-cluster', start, before: deepCopy(project),
+            cluster: { id: 'cluster-preview', title: 'Nouveau cluster', ...clusterBounds(start, start) } };
+          renderClusters();
+          return;
+        }
+      if ((mode === 'select' || mode === 'cluster') && !isSpaceDown && !event.target.closest('.architecture-node,.architecture-cluster')) {
         select(null);
         pendingSourceId = null;
         pendingSourcePort = null;
@@ -919,18 +1041,22 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     }, { passive: false });
     $('select-mode').addEventListener('click', () => setMode('select'));
     $('pan-mode').addEventListener('click', () => setMode('pan'));
+    $('cluster-mode').addEventListener('click', () => setMode(mode === 'cluster' ? 'select' : 'cluster'));
     $('add-note-button').addEventListener('click', () => addNode('note'));
     $('fit-button').addEventListener('click', fitToContent);
     $('zoom-in').addEventListener('click', () => { const r = ui.board.getBoundingClientRect(); zoomAt(1.2, r.left + r.width / 2, r.top + r.height / 2); });
     $('zoom-out').addEventListener('click', () => { const r = ui.board.getBoundingClientRect(); zoomAt(1 / 1.2, r.left + r.width / 2, r.top + r.height / 2); });
     $('delete-node-button').addEventListener('click', deleteSelection);
     $('delete-edge-button').addEventListener('click', deleteSelection);
+    $('delete-cluster-button').addEventListener('click', deleteSelection);
     $('duplicate-button').addEventListener('click', duplicateNode);
     const updateSelectedField = (property, value) => {
-      const item = (selection?.kind === 'node' ? project.nodes : project.edges).find((entry) => entry.id === selection?.id);
+      const collection = selection?.kind === 'node' ? project.nodes : selection?.kind === 'edge' ? project.edges : project.clusters;
+      const item = collection.find((entry) => entry.id === selection?.id);
       if (!item || item[property] === value) return;
       recordChange();
       item[property] = value;
+      renderClusters();
       renderNodes();
       renderEdges();
       save();
@@ -938,11 +1064,12 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
     $('node-title').addEventListener('change', (event) => updateSelectedField('title', event.target.value.trim().slice(0, 60) || 'Sans titre'));
     $('node-description').addEventListener('change', (event) => updateSelectedField('description', event.target.value.slice(0, 180)));
     $('edge-label').addEventListener('change', (event) => updateSelectedField('label', event.target.value.slice(0, 50)));
+    $('cluster-title-input').addEventListener('change', (event) => updateSelectedField('title', event.target.value.trim().slice(0, 60) || 'Cluster'));
     $('edge-line-type').addEventListener('change', (event) => updateSelectedField('lineType', normalizeEdgeLineType(event.target.value)));
     $('new-button').addEventListener('click', () => {
-      if (project.nodes.length && !window.confirm('Créer un tableau vierge ? Le projet actuel reste récupérable uniquement si vous l’avez exporté.')) return;
+      if ((project.nodes.length || project.clusters.length) && !window.confirm('Créer un tableau vierge ? Le projet actuel reste récupérable uniquement si vous l’avez exporté.')) return;
       recordChange();
-      project = { version: 1, name: 'Nouvelle architecture', nodes: [], edges: [], customIcons: deepCopy(project.customIcons) };
+      project = { version: 1, name: 'Nouvelle architecture', nodes: [], edges: [], clusters: [], customIcons: deepCopy(project.customIcons) };
       selection = null;
       selectedNodeIds.clear();
       redraw();
@@ -965,6 +1092,7 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
         selection = null;
         selectedNodeIds.clear();
         pendingSourceId = null;
+        pendingSourcePort = null;
         redraw();
         fitToContent();
         save();
@@ -995,7 +1123,8 @@ import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.
         event.preventDefault(); redo();
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault(); deleteSelection();
-      } else if (event.key === ' ' && !event.repeat) {
+      } else if (event.key.toLowerCase() === 'g') setMode(mode === 'cluster' ? 'select' : 'cluster');
+      else if (event.key === ' ' && !event.repeat) {
         event.preventDefault(); isSpaceDown = true; ui.board.classList.add('mode-pan');
       } else if (event.key.toLowerCase() === 'v') setMode('select');
       else if (event.key.toLowerCase() === 'h') setMode('pan');
