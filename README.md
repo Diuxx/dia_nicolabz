@@ -9,6 +9,8 @@
 - L’origine est au centre du canevas : cartes et clusters peuvent être placés à gauche et au-dessus, avec des coordonnées négatives conservées dans le JSON. Les projets existants gardent leurs coordonnées.
 - Le style d’une liaison peut être une ligne continue sans flèche, une ligne pointillée ou une ligne avec flèche à une ou aux deux extrémités ; ce choix est conservé dans le JSON et l’export PNG.
 - Les quatre points d’accroche des clusters permettent aussi de les relier aux composants ou à d’autres clusters, par clics ou glisser-déposer. Les liaisons suivent les clusters déplacés et sont conservées dans le JSON et l’export PNG.
+- Redimensionnez une carte, une note ou un cluster sélectionné en tirant sa poignée en bas à droite, ou en saisissant sa largeur et sa hauteur dans les propriétés. Un bouton rétablit la taille par défaut des cartes et des notes. Les dimensions sont enregistrées dans le JSON et prises en compte dans le PNG.
+- Déplacez les cartes, notes ou clusters sélectionnés avec les flèches du clavier : 1 unité par appui, ou 10 avec Maj. Les sélections multiples restent groupées et le déplacement peut être annulé.
 - Ctrl/Cmd+C, X et V copient, coupent et collent les cartes sélectionnées ou un cluster, sans leurs liaisons ni les cartes contenues dans le cluster. Couper supprime aussi les liaisons reliées aux éléments coupés ; Ctrl/Cmd+Z permet d’annuler. Le presse-papiers interne est limité à l’onglet et vidé lors du changement de projet.
 - Clic droit **sur un composant** : renommer, dupliquer, commencer une connexion, changer la couleur, supprimer.
 - Clic droit **sur une connexion** : modifier le libellé, inverser le sens, supprimer.

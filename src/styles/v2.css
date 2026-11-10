@@ -5,6 +5,13 @@
 .cluster-port:hover,.cluster-port.pending{fill:#5f4bd6}
 .board.hide-ports .cluster-port,.board.exporting-png .cluster-port{display:none}
 .right-sidebar>#cluster-inspector{padding:20px;overflow-y:auto;flex:1}
+.size-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0}
+.size-fields>div{min-width:0}
+.reset-size{width:100%;margin-top:10px}
+.port-right,.port-left{top:calc(50% - 8px)}
+.node-name,.node-subtitle{max-width:100%}
+.resize-handle{position:absolute;right:-6px;bottom:-6px;width:13px;height:13px;border:2px solid #fff;border-radius:3px;background:#6558d9;cursor:nwse-resize;z-index:5;touch-action:none}
+.cluster-resize-handle{fill:#6558d9;stroke:#fff;stroke-width:2;cursor:nwse-resize;pointer-events:all}
 .topbar{gap:12px}
 .top-actions{margin-left:auto}
 .profile-wrapper{position:relative;flex:none;z-index:15}

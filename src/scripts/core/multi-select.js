@@ -1,12 +1,12 @@
 export function clampGroupDelta(positions, deltaX, deltaY, canvasWidth, canvasHeight, nodeWidth, nodeHeight, minCanvasX = 0, minCanvasY = 0) {
   const minX = Math.min(...positions.map((position) => position.x));
   const minY = Math.min(...positions.map((position) => position.y));
-  const maxX = Math.max(...positions.map((position) => position.x));
-  const maxY = Math.max(...positions.map((position) => position.y));
+  const maxX = Math.max(...positions.map((position) => position.x + (position.width ?? nodeWidth)));
+  const maxY = Math.max(...positions.map((position) => position.y + (position.height ?? nodeHeight)));
   const minDeltaX = minCanvasX - minX;
   const minDeltaY = minCanvasY - minY;
-  const maxDeltaX = canvasWidth - nodeWidth - maxX;
-  const maxDeltaY = canvasHeight - nodeHeight - maxY;
+  const maxDeltaX = canvasWidth - maxX;
+  const maxDeltaY = canvasHeight - maxY;
 
   const clampDelta = (minimum, maximum, delta) => {
     const value = maximum < minimum ? minimum : Math.min(maximum, Math.max(minimum, delta));

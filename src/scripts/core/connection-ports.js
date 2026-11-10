@@ -23,7 +23,7 @@ export function resolveConnectionEndpoint(project, id, kind = 'node') {
 export function connectionEndpointSize(endpoint, kind, nodeWidth, nodeHeight) {
   return kind === 'cluster'
     ? { width: endpoint.width, height: endpoint.height }
-    : { width: nodeWidth, height: nodeHeight };
+    : { width: endpoint.width ?? nodeWidth, height: endpoint.height ?? nodeHeight };
 }
 
 export function connectionPortPoint(node, port, nodeWidth, nodeHeight) {

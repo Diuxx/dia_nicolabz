@@ -5,6 +5,8 @@ import { connectionEndpointSize, connectionPortNormal, connectionPortPoint, infe
 import { edgeLineSvgAttributes, normalizeEdgeLineType } from './core/edge-style.js';
 import { clusterBounds } from './core/cluster-geometry.js';
 import { createPastedItems } from './core/clipboard.js';
+import { CLUSTER_MIN_SIZE, NODE_MIN_SIZE, resizeFromBottomRight } from './core/resize.js';
+import { keyboardMoveDelta } from './core/keyboard-move.js';
 
 /* ArchCanvas — dependency-free browser whiteboard. No external network calls. */
 (() => {
@@ -103,12 +105,14 @@ import { createPastedItems } from './core/clipboard.js';
     const nodes = data.nodes.map((node) => {
       if (typeof node.id !== 'string' || !/^[\w-]{1,90}$/.test(node.id) || nodeIds.has(node.id) ||
           !validIcons.has(node.iconId) || !Number.isFinite(node.x) || !Number.isFinite(node.y) ||
-          Math.abs(node.x) > 5000 || Math.abs(node.y) > 5000) {
+          Math.abs(node.x) > 5000 || Math.abs(node.y) > 5000 ||
+          (node.width !== undefined && (!Number.isFinite(node.width) || node.width < NODE_MIN_SIZE.width || node.width > CANVAS_W - CANVAS_MIN_X)) ||
+          (node.height !== undefined && (!Number.isFinite(node.height) || node.height < NODE_MIN_SIZE.height || node.height > CANVAS_H - CANVAS_MIN_Y))) {
         throw new Error('Un composant du projet est invalide.');
       }
       nodeIds.add(node.id);
       return { id: node.id, iconId: node.iconId, title: String(node.title || '').slice(0, 60),
-        description: String(node.description || '').slice(0, 180), x: node.x, y: node.y,
+        description: String(node.description || '').slice(0, 180), x: node.x, y: node.y, width: node.width ?? NODE_W, height: node.height ?? NODE_H,
         color: COLORS.includes(node.color) ? node.color : COLORS[0] };
     });
     const clusterIds = new Set();
@@ -323,6 +327,12 @@ import { createPastedItems } from './core/clipboard.js';
         });
         ui.clusterPorts.appendChild(port);
       }
+      if (selection?.kind === 'cluster' && selection.id === cluster.id) {
+        const handle = svgElement('rect', { x: cluster.x + cluster.width - 6, y: cluster.y + cluster.height - 6,
+          width: 12, height: 12, rx: 2, class: 'cluster-resize-handle', 'data-cluster-id': cluster.id });
+        handle.addEventListener('pointerdown', (event) => startResize(event, 'cluster', cluster));
+        ui.clusterPorts.appendChild(handle);
+      }
     }
   }
 
@@ -335,6 +345,8 @@ import { createPastedItems } from './core/clipboard.js';
       element.dataset.nodeId = node.id;
       element.style.left = `${node.x}px`;
       element.style.top = `${node.y}px`;
+      element.style.width = `${node.width ?? NODE_W}px`;
+      element.style.height = `${node.height ?? NODE_H}px`;
       element.style.setProperty('--tile-bg', node.color);
       element.title = `${node.title}${node.description ? ` · ${node.description}` : ''}`;
       if (isNote) {
@@ -363,6 +375,13 @@ import { createPastedItems } from './core/clipboard.js';
           port.title = `Démarrer ou terminer une connexion ${side === 'top' ? 'en haut' : side === 'right' ? 'à droite' : side === 'bottom' ? 'en bas' : 'à gauche'}`;
           element.appendChild(port);
         }
+      }
+      if (selection?.kind === 'node' && selection.id === node.id) {
+        const handle = document.createElement('span');
+        handle.className = 'resize-handle';
+        handle.title = 'Redimensionner';
+        handle.addEventListener('pointerdown', (event) => startResize(event, 'node', node));
+        element.appendChild(handle);
       }
       element.addEventListener('pointerdown', onNodePointerDown);
       ui.nodes.appendChild(element);
@@ -466,6 +485,8 @@ import { createPastedItems } from './core/clipboard.js';
     }
     if (cluster) {
       $('cluster-title-input').value = cluster.title;
+      $('cluster-width').value = cluster.width;
+      $('cluster-height').value = cluster.height;
     }
     if (node) {
       const icon = $('selected-icon');
@@ -475,6 +496,9 @@ import { createPastedItems } from './core/clipboard.js';
       $('selected-type').textContent = node.iconId === 'note' ? 'Note' : iconFor(node.iconId)?.name || 'Composant';
       $('node-title').value = node.title;
       $('node-description').value = node.description;
+      $('node-width').value = node.width ?? NODE_W;
+      $('node-height').value = node.height ?? NODE_H;
+      $('reset-node-size').disabled = (node.width ?? NODE_W) === NODE_W && (node.height ?? NODE_H) === NODE_H;
       const choices = $('color-choices');
       choices.replaceChildren();
       for (const color of COLORS) {
@@ -580,6 +604,22 @@ import { createPastedItems } from './core/clipboard.js';
     updatePreview(pointToWorld(event.clientX, event.clientY));
   }
 
+  function startResize(event, kind, item) {
+    if (event.button !== 0 || isSpaceDown || mode === 'pan') return;
+    event.stopPropagation();
+    event.preventDefault();
+    const size = connectionEndpointSize(item, kind, NODE_W, NODE_H);
+    interaction = { kind: 'resize', targetKind: kind, id: item.id, ...size,
+      startClientX: event.clientX, startClientY: event.clientY, before: deepCopy(project) };
+  }
+
+  function cancelResize() {
+    if (interaction?.kind !== 'resize') return;
+    project = interaction.before;
+    interaction = null;
+    redraw();
+  }
+
   function onNodePointerDown(event) {
     if (event.button !== 0) return;
     if (mode === 'cluster' && !isSpaceDown) return;
@@ -612,7 +652,7 @@ import { createPastedItems } from './core/clipboard.js';
     renderInspector();
     if (!selectedNodeIds.has(nodeId)) return;
     const selectedNodes = project.nodes.filter((item) => selectedNodeIds.has(item.id));
-    interaction = { kind: 'move', nodes: selectedNodes.map((item) => ({ id: item.id, x: item.x, y: item.y })),
+    interaction = { kind: 'move', nodes: selectedNodes.map((item) => ({ id: item.id, x: item.x, y: item.y, width: item.width, height: item.height })),
       startClientX: event.clientX, startClientY: event.clientY, before: deepCopy(project), moved: false };
   }
 
@@ -631,6 +671,19 @@ import { createPastedItems } from './core/clipboard.js';
       const bounds = clusterBounds(interaction.start, end, 80, CANVAS_LIMITS);
       interaction.cluster = { id: 'cluster-preview', title: 'Nouveau cluster', ...bounds };
       renderClusters();
+    } else if (interaction.kind === 'resize') {
+      const item = resolveConnectionEndpoint(project, interaction.id, interaction.targetKind);
+      if (!item) return;
+      const minimum = interaction.targetKind === 'node' ? NODE_MIN_SIZE : CLUSTER_MIN_SIZE;
+      const width = Math.round(interaction.width + (event.clientX - interaction.startClientX) / view.zoom);
+      const height = Math.round(interaction.height + (event.clientY - interaction.startClientY) / view.zoom);
+      const size = resizeFromBottomRight(item, width, height, minimum, CANVAS_LIMITS);
+      if (!size) return;
+      Object.assign(item, size);
+      renderClusters();
+      renderNodes();
+      renderEdges();
+      renderInspector();
     } else if (interaction.kind === 'move-cluster') {
       const cluster = project.clusters.find((item) => item.id === interaction.id);
       if (!cluster) return;
@@ -665,6 +718,13 @@ import { createPastedItems } from './core/clipboard.js';
     if (!interaction) return;
     const last = interaction;
     interaction = null;
+    if (last.kind === 'resize') {
+      const item = resolveConnectionEndpoint(project, last.id, last.targetKind);
+      if (item && (item.width !== last.width || item.height !== last.height)) {
+        recordChange(last.before);
+        save();
+      }
+    }
     if (last.kind === 'draw-cluster') {
       const bounds = clusterBounds(last.start, pointToWorld(event.clientX, event.clientY), 80, CANVAS_LIMITS);
       if (last.moved && bounds.width >= 80 && bounds.height >= 80) {
@@ -728,8 +788,8 @@ import { createPastedItems } from './core/clipboard.js';
     } else {
       const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x));
       const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y));
-      const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width));
-      const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height));
+      const maxX = Math.max(...project.nodes.map((node) => node.x + (node.width ?? NODE_W)), ...project.clusters.map((cluster) => cluster.x + cluster.width));
+      const maxY = Math.max(...project.nodes.map((node) => node.y + (node.height ?? NODE_H)), ...project.clusters.map((cluster) => cluster.y + cluster.height));
       const contentWidth = maxX - minX;
       const contentHeight = maxY - minY;
       const zoom = clamp(Math.min((rect.width - 105) / contentWidth, (rect.height - 130) / contentHeight), .3, 1.15);
@@ -767,6 +827,27 @@ import { createPastedItems } from './core/clipboard.js';
     showToast(nodeIds.size > 1 ? 'Composants supprimés.' : 'Élément supprimé.');
   }
 
+  function moveSelectionWithKeyboard(event) {
+    if (interaction || pendingSourceId) return false;
+    const items = selection?.kind === 'cluster'
+      ? project.clusters.filter((cluster) => cluster.id === selection.id)
+      : project.nodes.filter((node) => selectedNodeIds.has(node.id));
+    const delta = keyboardMoveDelta(items, event.key, event.shiftKey, CANVAS_LIMITS, { width: NODE_W, height: NODE_H });
+    if (!delta) return false;
+    event.preventDefault();
+    if (!delta.x && !delta.y) return true;
+    recordChange();
+    for (const item of items) {
+      item.x += delta.x;
+      item.y += delta.y;
+    }
+    renderClusters();
+    renderNodes();
+    renderEdges();
+    save();
+    return true;
+  }
+
   function copySelection(cut = false) {
     const nodes = project.nodes.filter((node) => selectedNodeIds.has(node.id));
     const cluster = selection?.kind === 'cluster'
@@ -793,8 +874,8 @@ import { createPastedItems } from './core/clipboard.js';
     if (clipboard.nodes.length) {
       const xs = clipboard.nodes.map((node) => node.x);
       const ys = clipboard.nodes.map((node) => node.y);
-      if (Math.max(...xs) - Math.min(...xs) + NODE_W > CANVAS_W - CANVAS_MIN_X ||
-          Math.max(...ys) - Math.min(...ys) + NODE_H > CANVAS_H - CANVAS_MIN_Y) {
+      if (Math.max(...clipboard.nodes.map((node) => node.x + (node.width ?? NODE_W))) - Math.min(...xs) > CANVAS_W - CANVAS_MIN_X ||
+          Math.max(...clipboard.nodes.map((node) => node.y + (node.height ?? NODE_H))) - Math.min(...ys) > CANVAS_H - CANVAS_MIN_Y) {
         return showToast('Collage impossible : la sélection dépasse les limites du canevas.');
       }
     }
@@ -821,7 +902,7 @@ import { createPastedItems } from './core/clipboard.js';
     const node = project.nodes.find((item) => item.id === selection?.id && selection?.kind === 'node');
     if (!node) return;
     const copy = { ...deepCopy(node), id: uid(), title: `${node.title} copie`.slice(0, 60),
-      x: clamp(node.x + 35, CANVAS_MIN_X, CANVAS_W - NODE_W), y: clamp(node.y + 40, CANVAS_MIN_Y, CANVAS_H - NODE_H) };
+      x: clamp(node.x + 35, CANVAS_MIN_X, CANVAS_W - (node.width ?? NODE_W)), y: clamp(node.y + 40, CANVAS_MIN_Y, CANVAS_H - (node.height ?? NODE_H)) };
     changeProject(() => project.nodes.push(copy));
     select({ kind: 'node', id: copy.id });
   }
@@ -850,8 +931,8 @@ import { createPastedItems } from './core/clipboard.js';
     if (!project.nodes.length && !project.clusters.length) throw new Error('Ajoutez au moins un composant ou un cluster avant d’exporter.');
     const minX = Math.min(...project.nodes.map((node) => node.x), ...project.clusters.map((cluster) => cluster.x)) - 64;
     const minY = Math.min(...project.nodes.map((node) => node.y), ...project.clusters.map((cluster) => cluster.y)) - 75;
-    const maxX = Math.max(...project.nodes.map((node) => node.x + NODE_W), ...project.clusters.map((cluster) => cluster.x + cluster.width)) + 64;
-    const maxY = Math.max(...project.nodes.map((node) => node.y + NODE_H), ...project.clusters.map((cluster) => cluster.y + cluster.height)) + 70;
+    const maxX = Math.max(...project.nodes.map((node) => node.x + (node.width ?? NODE_W)), ...project.clusters.map((cluster) => cluster.x + cluster.width)) + 64;
+    const maxY = Math.max(...project.nodes.map((node) => node.y + (node.height ?? NODE_H)), ...project.clusters.map((cluster) => cluster.y + cluster.height)) + 70;
     const w = maxX - minX;
     const h = maxY - minY;
     const fragments = [`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
@@ -878,18 +959,20 @@ import { createPastedItems } from './core/clipboard.js';
     for (const node of project.nodes) {
       const x = node.x;
       const y = node.y;
+      const width = node.width ?? NODE_W;
+      const height = node.height ?? NODE_H;
       const note = node.iconId === 'note';
-      fragments.push(`<rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="15" stroke="${note ? '#e5c878' : '#e2e7f0'}" stroke-width="2" fill="${note ? '#fff3c8' : '#ffffff'}"/>`);
+      fragments.push(`<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="15" stroke="${note ? '#e5c878' : '#e2e7f0'}" stroke-width="2" fill="${note ? '#fff3c8' : '#ffffff'}"/>`);
       if (!note) {
         const icon = iconFor(node.iconId);
-        fragments.push(`<rect x="${x + 38}" y="${y + 9}" width="82" height="73" rx="13" fill="${escapeXml(node.color)}"/>`);
-        if (icon?.svg) fragments.push(`<svg x="${x + 45}" y="${y + 12}" width="68" height="68" viewBox="0 0 100 100">${icon.svg}</svg>`);
-        if (icon?.dataUrl) fragments.push(`<image x="${x + 45}" y="${y + 12}" width="68" height="68" href="${escapeXml(icon.dataUrl)}"/>`);
+        fragments.push(`<rect x="${x + width / 2 - 41}" y="${y + 9}" width="82" height="73" rx="13" fill="${escapeXml(node.color)}"/>`);
+        if (icon?.svg) fragments.push(`<svg x="${x + width / 2 - 34}" y="${y + 12}" width="68" height="68" viewBox="0 0 100 100">${icon.svg}</svg>`);
+        if (icon?.dataUrl) fragments.push(`<image x="${x + width / 2 - 34}" y="${y + 12}" width="68" height="68" href="${escapeXml(icon.dataUrl)}"/>`);
       }
       if (note) fragments.push(`<text x="${x + 16}" y="${y + 30}" font-size="18" fill="#b78d3f">✳</text>`);
       const textY = y + (note ? 58 : 108);
-      fragments.push(`<text x="${note ? x + 16 : x + NODE_W / 2}" y="${textY}" font-size="13" font-family="Arial,sans-serif" font-weight="bold" text-anchor="${note ? 'start' : 'middle'}" fill="#2b3956">${escapeXml(node.title.slice(0, 26))}</text>`);
-      fragments.push(`<text x="${note ? x + 16 : x + NODE_W / 2}" y="${textY + 19}" font-size="10" font-family="Arial,sans-serif" text-anchor="${note ? 'start' : 'middle'}" fill="#8693a6">${escapeXml(node.description.slice(0, 25))}</text>`);
+      fragments.push(`<text x="${note ? x + 16 : x + width / 2}" y="${textY}" font-size="13" font-family="Arial,sans-serif" font-weight="bold" text-anchor="${note ? 'start' : 'middle'}" fill="#2b3956">${escapeXml(node.title.slice(0, 26))}</text>`);
+      fragments.push(`<text x="${note ? x + 16 : x + width / 2}" y="${textY + 19}" font-size="10" font-family="Arial,sans-serif" text-anchor="${note ? 'start' : 'middle'}" fill="#8693a6">${escapeXml(node.description.slice(0, 25))}</text>`);
     }
     fragments.push('</svg>');
     return { content: fragments.join(''), width: w, height: h };
@@ -1134,7 +1217,7 @@ import { createPastedItems } from './core/clipboard.js';
     });
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', () => { interaction = null; });
+    window.addEventListener('pointercancel', () => { cancelResize(); interaction = null; });
     ui.board.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; });
     ui.board.addEventListener('drop', (event) => {
       event.preventDefault();
@@ -1158,6 +1241,17 @@ import { createPastedItems } from './core/clipboard.js';
     $('delete-edge-button').addEventListener('click', deleteSelection);
     $('delete-cluster-button').addEventListener('click', deleteSelection);
     $('duplicate-button').addEventListener('click', duplicateNode);
+    $('reset-node-size').addEventListener('click', () => {
+      const node = selection?.kind === 'node' ? project.nodes.find((item) => item.id === selection.id) : null;
+      if (!node || ((node.width ?? NODE_W) === NODE_W && (node.height ?? NODE_H) === NODE_H)) return;
+      changeProject(() => {
+        node.width = NODE_W;
+        node.height = NODE_H;
+        node.x = Math.min(node.x, CANVAS_W - NODE_W);
+        node.y = Math.min(node.y, CANVAS_H - NODE_H);
+      });
+      showToast('Taille par défaut rétablie.');
+    });
     const updateSelectedField = (property, value) => {
       const collection = selection?.kind === 'node' ? project.nodes : selection?.kind === 'edge' ? project.edges : project.clusters;
       const item = collection.find((entry) => entry.id === selection?.id);
@@ -1174,6 +1268,28 @@ import { createPastedItems } from './core/clipboard.js';
     $('edge-label').addEventListener('change', (event) => updateSelectedField('label', event.target.value.slice(0, 50)));
     $('cluster-title-input').addEventListener('change', (event) => updateSelectedField('title', event.target.value.trim().slice(0, 60) || 'Cluster'));
     $('edge-line-type').addEventListener('change', (event) => updateSelectedField('lineType', normalizeEdgeLineType(event.target.value)));
+    for (const kind of ['node', 'cluster']) {
+      for (const dimension of ['width', 'height']) {
+        $(`${kind}-${dimension}`).addEventListener('change', (event) => {
+          if (selection?.kind !== kind) return;
+          const item = resolveConnectionEndpoint(project, selection.id, kind);
+          if (!item) return;
+          const value = event.target.valueAsNumber;
+          const minimum = kind === 'node' ? NODE_MIN_SIZE : CLUSTER_MIN_SIZE;
+          const size = connectionEndpointSize(item, kind, NODE_W, NODE_H);
+          const maximum = dimension === 'width'
+            ? Math.min(CANVAS_W - item.x, CANVAS_W - CANVAS_MIN_X)
+            : Math.min(CANVAS_H - item.y, CANVAS_H - CANVAS_MIN_Y);
+          if (!Number.isFinite(value) || value < minimum[dimension] || value > maximum) {
+            showToast(`La ${dimension === 'width' ? 'largeur' : 'hauteur'} doit être comprise entre ${minimum[dimension]} et ${Math.max(0, maximum)}.`);
+            renderInspector();
+            return;
+          }
+          if (value === size[dimension]) return;
+          changeProject(() => { item[dimension] = value; });
+        });
+      }
+    }
     $('new-button').addEventListener('click', () => {
       if ((project.nodes.length || project.clusters.length) && !window.confirm('Créer un tableau vierge ? Le projet actuel reste récupérable uniquement si vous l’avez exporté.')) return;
       recordChange();
@@ -1222,6 +1338,7 @@ import { createPastedItems } from './core/clipboard.js';
         contextMenu.close();
         pendingSourceId = null;
         pendingSourcePort = null;
+        cancelResize();
         interaction = null;
         updatePreview();
         renderNodes();
@@ -1241,6 +1358,8 @@ import { createPastedItems } from './core/clipboard.js';
         event.preventDefault(); redo();
       } else if (event.ctrlKey || event.metaKey || event.altKey) {
         return;
+      } else if (moveSelectionWithKeyboard(event)) {
+        return;
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault(); deleteSelection();
       } else if (event.key.toLowerCase() === 'g') setMode(mode === 'cluster' ? 'select' : 'cluster');
@@ -1252,7 +1371,7 @@ import { createPastedItems } from './core/clipboard.js';
     window.addEventListener('keyup', (event) => {
       if (event.key === ' ') { isSpaceDown = false; ui.board.classList.toggle('mode-pan', mode === 'pan'); }
     });
-    window.addEventListener('blur', () => { isSpaceDown = false; interaction = null; });
+    window.addEventListener('blur', () => { isSpaceDown = false; cancelResize(); interaction = null; });
     window.addEventListener('resize', applyView);
   }
 
