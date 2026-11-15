@@ -3,16 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f8fc">
+  <meta name="theme-color" content="#fafaf8">
   <title>{{ title or site.name }}</title>
   <meta name="description" content="{{ site.description }}">
+  <script src="/design-system/theme.js"></script>
+  <link rel="stylesheet" href="/design-system/theme.css">
+  <link rel="stylesheet" href="/design-system/typography.css">
+  <link rel="stylesheet" href="/design-system/components.css">
+  <link rel="stylesheet" href="/design-system/icons.css">
   <link rel="stylesheet" href="/styles/board.css">
   <link rel="stylesheet" href="/styles/v2.css">
+  <link rel="stylesheet" href="/styles/design-integration.css">
+  <script defer src="/design-system/components.js"></script>
   <script defer src="/scripts/icons.js"></script>
   <script defer src="/scripts/cloud-icons.js"></script>
+  <script defer src="/scripts/ui/theme-toggle.js"></script>
   <script type="module" src="/scripts/app.js"></script>
 </head>
-<body>
+<body class="nz-base">
 {{ content | safe }}
 </body>
 </html>

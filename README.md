@@ -96,3 +96,30 @@ tests/                      Tests Node natifs
 ```
 
 **Dépannage :** si Google renvoie `ORIGIN_FORBIDDEN` ou `INVALID_RETURN_URL`, vérifier que l'origine exacte du frontend se trouve bien dans `CLIENT_APPS_JSON`. Utiliser `localhost` partout en développement, sans mélanger avec `127.0.0.1`. Pour un échec de synchro, vérifier la permission `drive.appdata`, la taille du JSON et les éventuels `409`.
+
+## Nicolabz Design System
+
+This Eleventy app uses [Nicolabz Design System](https://github.com/Diuxx/nicolabz-design-system)
+version **0.4.0**, pinned to commit `0cddb94063b2d2fb70a125957001f1f51cf58b42` via Git HTTPS.
+Eleventy copies its CSS, theme and notification scripts, and SVG icon sprite to
+`/design-system/` at build time. No design system assets are fetched at runtime.
+Diagram interactions, JSON formats and Google Drive sync remain unchanged.
+
+Install and validate:
+
+```sh
+npm ci
+npm run check
+```
+
+To update, select a verified release tag or SHA and run:
+
+```sh
+npm install "@nicolabz/design-system@git+https://github.com/Diuxx/nicolabz-design-system.git#REF"
+npm run check
+```
+
+Commit both `package.json` and `package-lock.json`. Theme selection uses
+the shared `nicolabz-theme` localStorage key and follows the OS preference
+until explicitly changed. Existing diagram card colors are fixed light swatches
+to preserve visual compatibility with previously saved projects.

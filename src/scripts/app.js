@@ -75,7 +75,6 @@ import { exportBackgroundSvg } from './core/export-background.js';
   let clipboard = null;
   let past = [];
   let future = [];
-  let toastTimer;
   const contextMenu = createContextMenu($('context-menu')); 
 
   function loadSavedProject() {
@@ -181,10 +180,10 @@ import { exportBackgroundSvg } from './core/export-background.js';
   }
 
   function showToast(message) {
-    ui.toast.textContent = message;
-    ui.toast.classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => ui.toast.classList.remove('visible'), 3100);
+    window.nicolabzComponents.showToast(ui.toast, message, {
+      duration: 4000,
+      dismissLabel: 'Fermer'
+    });
   }
 
   function save() {
