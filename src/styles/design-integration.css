@@ -1,0 +1,23 @@
+/* Application-specific layout and compatibility for colored architecture cards. */
+:root {
+  /* User-selected diagram swatches stay light in both themes. */
+  --archcanvas-node-ink: #17191c;
+  --archcanvas-node-muted: #4d575b;
+}
+
+.theme-toggle {
+  flex: none;
+  width: var(--control-height);
+  padding: var(--space-2);
+}
+.theme-toggle .nz-icon { flex: none; }
+.nz-form-panel .nz-field-label { margin-top: var(--space-3); }
+.nz-form-panel .nz-field-label:first-of-type { margin-top: 0; }
+.nz-form-panel .textarea { min-height: 80px; }
+.architecture-node .node-name { color: var(--archcanvas-node-ink); }
+.architecture-node .node-subtitle { color: var(--archcanvas-node-muted); }
+.nz-dialog.sync-dialog { max-height: calc(100dvh - var(--space-8)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .architecture-node, .palette-item, .tool { transition: none; }
+}

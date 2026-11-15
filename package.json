@@ -3,12 +3,19 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "eleventy --serve --port=8081",
     "build": "eleventy",
     "test": "node --test tests/*.test.js",
     "check": "npm test && npm run build"
   },
-  "devDependencies": { "@11ty/eleventy": "^3.1.0" }
+  "devDependencies": {
+    "@11ty/eleventy": "^3.1.0"
+  },
+  "dependencies": {
+    "@nicolabz/design-system": "git+https://github.com/Diuxx/nicolabz-design-system.git#0cddb94063b2d2fb70a125957001f1f51cf58b42"
+  }
 }

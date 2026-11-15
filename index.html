@@ -5,14 +5,17 @@ title: ArchCanvas — Architecture whiteboard
 
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-symbol" aria-hidden="true">A<span>•</span></span><div><strong>ArchCanvas</strong><small>Architecture whiteboard</small></div><span class="version">POC</span></div>
+      <div class="brand"><span class="brand-symbol" aria-hidden="true">A<span>•</span></span><div><strong>ArchCanvas</strong><small>Architecture whiteboard</small></div><span class="version nz-badge">POC</span></div>
       <div class="document-name"><span class="live-dot"></span><input id="project-name" aria-label="Nom du schéma" value="Architecture de démonstration" maxlength="70"><span class="saved-indicator" id="saved-indicator">Enregistré</span></div>
       <div class="top-actions">
-        <button type="button" id="new-button" class="button subtle" title="Créer un tableau vierge">Nouveau</button>
-        <button type="button" id="open-button" class="button subtle" title="Importer un fichier JSON">Importer</button>
-        <button type="button" id="export-json-button" class="button subtle" title="Exporter le projet modifiable">JSON <span class="down-arrow">↓</span></button>
-        <button type="button" id="export-png-button" class="button primary" title="Exporter une image PNG">Exporter PNG <span class="down-arrow">↗</span></button>
+        <button type="button" id="new-button" class="nz-button nz-button-secondary subtle" title="Créer un tableau vierge">Nouveau</button>
+        <button type="button" id="open-button" class="nz-button nz-button-secondary subtle" title="Importer un fichier JSON">Importer</button>
+        <button type="button" id="export-json-button" class="nz-button nz-button-secondary subtle" title="Exporter le projet modifiable">JSON <span class="down-arrow">↓</span></button>
+        <button type="button" id="export-png-button" class="nz-button nz-button-primary" title="Exporter une image PNG">Exporter PNG <span class="down-arrow">↗</span></button>
       </div>
+      <button type="button" id="theme-toggle" class="nz-button nz-button-secondary nz-icon-button theme-toggle" aria-label="Changer de thème" title="Changer de thème">
+        <svg class="nz-icon" aria-hidden="true"><use href="/design-system/icons.svg#moon"></use></svg>
+      </button>
       <div class="profile-wrapper">
         <button type="button" id="profile-trigger" class="profile-trigger" aria-expanded="false" aria-controls="profile-menu" title="Compte Google et synchronisation Drive">
           <span class="profile-avatar-box"><span id="profile-avatar-fallback">G</span><img id="profile-avatar" alt="" hidden></span>
@@ -21,21 +24,21 @@ title: ArchCanvas — Architecture whiteboard
         </button>
         <div id="profile-menu" class="profile-menu" hidden>
           <div class="profile-menu-header"><strong id="profile-name">Compte Google</strong><span id="profile-email">Édition locale</span><small id="profile-status">Mode local</small></div>
-          <button type="button" id="identity-login">Connexion avec Google</button>
-          <button type="button" id="identity-drive" hidden>Autoriser Google Drive</button>
-          <button type="button" id="identity-sync" disabled hidden>Synchroniser le schéma</button>
-          <button type="button" id="identity-refresh">Actualiser la connexion</button>
-          <button type="button" id="identity-logout" hidden>Se déconnecter</button>
+          <button type="button" class="nz-button nz-button-secondary" id="identity-login">Connexion avec Google</button>
+          <button type="button" class="nz-button nz-button-secondary" id="identity-drive" hidden>Autoriser Google Drive</button>
+          <button type="button" class="nz-button nz-button-secondary" id="identity-sync" disabled hidden>Synchroniser le schéma</button>
+          <button type="button" class="nz-button nz-button-secondary" id="identity-refresh">Actualiser la connexion</button>
+          <button type="button" class="nz-button nz-button-secondary" id="identity-logout" hidden>Se déconnecter</button>
         </div>
       </div>
     </header>
 
     <div class="app-main">
       <aside class="sidebar left-sidebar" aria-label="Bibliothèque de composants">
-        <div class="panel-heading"><div><p class="eyebrow">BIBLIOTHÈQUE</p><h2>Composants <span class="icon-count" id="icon-count">55</span></h2></div></div>
-        <div class="search-wrap"><svg viewBox="0 0 24 24" width="17" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="icon-search" placeholder="Rechercher une icône…" aria-label="Rechercher une icône"></div>
+        <div class="panel-heading"><div><p class="eyebrow">BIBLIOTHÈQUE</p><h2>Composants <span class="icon-count nz-badge" id="icon-count">55</span></h2></div></div>
+        <div class="search-wrap nz-form-panel"><svg viewBox="0 0 24 24" width="17" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg><input type="search" id="icon-search" placeholder="Rechercher une icône…" aria-label="Rechercher une icône"></div>
         <div id="palette" class="palette" aria-label="Faites glisser une icône vers le tableau"></div>
-        <div class="import-icons-block"><div class="custom-header"><span class="small-bullet">✦</span><strong>Vos propres SVG</strong></div><p>Importez les icônes IconScout que vous avez téléchargées.</p><button type="button" id="import-icons-button" class="button import-asset">+ Ajouter des SVG</button><a href="https://iconscout.com/icon-pack/servers-database-icon-pack_16213" target="_blank" rel="noopener noreferrer">Voir les packs IconScout ↗</a></div>
+        <div class="import-icons-block"><div class="custom-header"><span class="small-bullet">✦</span><strong>Vos propres SVG</strong></div><p>Importez les icônes IconScout que vous avez téléchargées.</p><button type="button" id="import-icons-button" class="nz-button nz-button-secondary import-asset">+ Ajouter des SVG</button><a href="https://iconscout.com/icon-pack/servers-database-icon-pack_16213" target="_blank" rel="noopener noreferrer">Voir les packs IconScout ↗</a></div>
       </aside>
 
       <main class="canvas-area" aria-label="Tableau blanc d'architecture">
@@ -67,42 +70,42 @@ title: ArchCanvas — Architecture whiteboard
       <aside class="sidebar right-sidebar" aria-label="Propriétés de l'élément sélectionné">
         <div class="inspector-title"><p class="eyebrow">CONFIGURATION</p><h2>Propriétés</h2></div>
         <div id="inspector-empty" class="inspector-empty"><div class="inspector-empty-illustration"><span>⌁</span><span>◈</span><span>⌁</span></div><strong>Aucun élément sélectionné</strong><p>Sélectionnez un composant ou une connexion sur le tableau pour le modifier.</p></div>
-        <div id="node-inspector" hidden>
+        <div id="node-inspector" class="nz-form-panel" hidden>
           <div class="selected-preview"><div id="selected-icon"></div><div><span class="eyebrow">COMPOSANT</span><h3 id="selected-type"></h3></div></div>
-          <label class="field-label" for="node-title">Nom du composant</label><input id="node-title" class="field" type="text" maxlength="60">
-          <label class="field-label" for="node-description">Description / technologie</label><textarea id="node-description" class="field textarea" rows="3" maxlength="180" aria-describedby="description-help"></textarea><small id="description-help" class="field-help">Entrée : valider · Maj+Entrée : nouvelle ligne</small>
-          <div class="size-fields"><div><label class="field-label" for="node-width">Largeur</label><input id="node-width" class="field" type="number" min="120" step="1"></div><div><label class="field-label" for="node-height">Hauteur</label><input id="node-height" class="field" type="number" min="141" step="1"></div></div>
-          <button type="button" class="button secondary reset-size" id="reset-node-size">Rétablir la taille par défaut</button>
-          <label class="field-label" for="node-color">Couleur de la carte</label><div class="color-choices" id="color-choices"></div>
-          <div class="inspector-actions"><button class="button secondary" id="duplicate-button">Dupliquer</button><button class="button danger" id="delete-node-button">Supprimer</button></div>
+          <label class="nz-field-label" for="node-title">Nom du composant</label><input id="node-title"  type="text" maxlength="60">
+          <label class="nz-field-label" for="node-description">Description / technologie</label><textarea id="node-description" class="textarea" rows="3" maxlength="180" aria-describedby="description-help"></textarea><small id="description-help" class="field-help">Entrée : valider · Maj+Entrée : nouvelle ligne</small>
+          <div class="size-fields"><div><label class="nz-field-label" for="node-width">Largeur</label><input id="node-width"  type="number" min="120" step="1"></div><div><label class="nz-field-label" for="node-height">Hauteur</label><input id="node-height"  type="number" min="141" step="1"></div></div>
+          <button type="button" class="nz-button nz-button-secondary reset-size" id="reset-node-size">Rétablir la taille par défaut</button>
+          <label class="nz-field-label" for="node-color">Couleur de la carte</label><div class="color-choices" id="color-choices"></div>
+          <div class="inspector-actions"><button class="nz-button nz-button-secondary" id="duplicate-button">Dupliquer</button><button class="nz-button nz-button-secondary danger" id="delete-node-button">Supprimer</button></div>
           <div class="inspector-tip"><strong>Connexions</strong><p>Cliquez sur un point d’accroche en haut, à droite, en bas ou à gauche d’un composant, puis sur un point d’un autre composant. Vous pouvez aussi glisser d’un point à l’autre.</p></div>
         </div>
-        <div id="edge-inspector" hidden><div class="connection-header">↗ <strong>Connexion sélectionnée</strong></div><label class="field-label" for="edge-label">Libellé (ex. HTTPS, SQL)</label><input id="edge-label" class="field" maxlength="50" placeholder="HTTPS : 443"><label class="field-label" for="edge-line-type">Style de liaison</label><select id="edge-line-type" class="field"><option value="arrow-right">Flèche vers la droite</option><option value="arrow-left">Flèche vers la gauche</option><option value="arrow-both">Flèches aux deux extrémités</option><option value="dotted">Pointillés sans flèche</option><option value="simple">Ligne simple sans flèche</option></select><button class="button danger block" id="delete-edge-button">Supprimer la connexion</button></div>
-        <div id="cluster-inspector" hidden><div class="connection-header">▧ <strong>Cluster sélectionné</strong></div><label class="field-label" for="cluster-title-input">Nom du cluster</label><input id="cluster-title-input" class="field" maxlength="60"><div class="size-fields"><div><label class="field-label" for="cluster-width">Largeur</label><input id="cluster-width" class="field" type="number" min="80" step="1"></div><div><label class="field-label" for="cluster-height">Hauteur</label><input id="cluster-height" class="field" type="number" min="80" step="1"></div></div><button class="button danger block" id="delete-cluster-button">Supprimer le cluster</button></div>
+        <div id="edge-inspector" class="nz-form-panel" hidden><div class="connection-header">↗ <strong>Connexion sélectionnée</strong></div><label class="nz-field-label" for="edge-label">Libellé (ex. HTTPS, SQL)</label><input id="edge-label"  maxlength="50" placeholder="HTTPS : 443"><label class="nz-field-label" for="edge-line-type">Style de liaison</label><select id="edge-line-type" ><option value="arrow-right">Flèche vers la droite</option><option value="arrow-left">Flèche vers la gauche</option><option value="arrow-both">Flèches aux deux extrémités</option><option value="dotted">Pointillés sans flèche</option><option value="simple">Ligne simple sans flèche</option></select><button class="nz-button nz-button-secondary danger block" id="delete-edge-button">Supprimer la connexion</button></div>
+        <div id="cluster-inspector" class="nz-form-panel" hidden><div class="connection-header">▧ <strong>Cluster sélectionné</strong></div><label class="nz-field-label" for="cluster-title-input">Nom du cluster</label><input id="cluster-title-input"  maxlength="60"><div class="size-fields"><div><label class="nz-field-label" for="cluster-width">Largeur</label><input id="cluster-width"  type="number" min="80" step="1"></div><div><label class="nz-field-label" for="cluster-height">Hauteur</label><input id="cluster-height"  type="number" min="80" step="1"></div></div><button class="nz-button nz-button-secondary danger block" id="delete-cluster-button">Supprimer le cluster</button></div>
         <div class="sidebar-footer"><div class="footer-kbd">⌨</div><div><strong>Raccourcis clavier</strong><p>Flèches : déplacer · Maj+flèches : déplacer plus vite · Ctrl/Cmd+C / X / V : copier / couper / coller · Suppr : effacer · Ctrl+Z : annuler · Molette : zoom · Espace : déplacer</p></div></div>
       </aside>
     </div>
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="nz-toast-region nz-toast-region-bottom" id="toast" tabindex="-1" role="status" aria-live="polite"></div>
     <input type="file" id="project-file" accept=".json,application/json" hidden>
     <input type="file" id="svg-files" accept=".svg,image/svg+xml" multiple hidden>
   </div>
 
   <div class="context-menu" id="context-menu" role="menu" aria-label="Actions contextuelles" hidden></div>
-  <dialog id="export-png-dialog" class="sync-dialog" aria-labelledby="export-png-dialog-title">
+  <dialog id="export-png-dialog" class="nz-dialog sync-dialog" aria-labelledby="export-png-dialog-title">
     <h2 id="export-png-dialog-title">Exporter une image PNG</h2>
     <p>Choisissez le fond de votre image.</p>
-    <div class="sync-choices">
-      <button type="button" data-background="white">Fond blanc</button>
-      <button type="button" data-background="dotted">Fond pointillé</button>
-      <form method="dialog"><button type="submit" class="cancel">Annuler</button></form>
+    <div class="nz-dialog-actions sync-choices">
+      <button type="button" class="nz-button nz-button-secondary" data-background="white">Fond blanc</button>
+      <button type="button" class="nz-button nz-button-secondary" data-background="dotted">Fond pointillé</button>
+      <form method="dialog"><button type="submit" class="nz-button nz-button-secondary cancel">Annuler</button></form>
     </div>
   </dialog>
-  <dialog id="sync-dialog" class="sync-dialog" aria-labelledby="sync-dialog-title">
+  <dialog id="sync-dialog" class="nz-dialog sync-dialog" aria-labelledby="sync-dialog-title">
     <h2 id="sync-dialog-title">Synchronisation Google Drive</h2>
     <p id="sync-dialog-message"></p>
-    <div class="sync-choices">
-      <button type="button" data-choice="remote" id="sync-download">Garder Drive → Local</button>
-      <button type="button" data-choice="local" id="sync-upload">Garder le local → Drive</button>
-      <button type="button" data-choice="cancel" class="cancel">Annuler</button>
+    <div class="nz-dialog-actions sync-choices">
+      <button type="button" class="nz-button nz-button-secondary" data-choice="remote" id="sync-download">Garder Drive → Local</button>
+      <button type="button" class="nz-button nz-button-primary" data-choice="local" id="sync-upload">Garder le local → Drive</button>
+      <button type="button" data-choice="cancel" class="nz-button nz-button-secondary cancel">Annuler</button>
     </div>
   </dialog>
